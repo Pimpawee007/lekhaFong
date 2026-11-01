@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeKhaFong Production</title>
+    <link rel="icon" type="image" href="lekhaFongLogo.png">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: IBM Plex Sans Thai -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'IBM Plex Sans Thai', sans-serif;
+            background-color: #fcf3f6; /* Pastel pink background */
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #d896b0; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #c47a97; }
+
+        /* Animation for view transition */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-gray-800 text-white p-4 sticky top-0 z-40 shadow-md">
+        <div class="w-[75%] max-w-7xl mx-auto flex flex-wrap justify-between items-center">
+            <div class="flex items-center gap-2 text-xl font-bold text-pink-300 cursor-pointer" onclick="switchView('home-view')">
+                <img src="lekhaFongLogo.png" alt="logo" width="50">
+                <span>LekhaFong</span>
+            </div>
+            
+            <!-- Navigation Links -->
+            <div class="hidden md:flex gap-6 items-center text-sm lg:text-base mt-4 md:mt-0">
+                <button onclick="switchView('home-view')" class="hover:text-pink-300 transition">หน้าแรก</button>
+                <button onclick="switchView('search-view')" class="hover:text-pink-300 transition">ค้นหาอุปกรณ์</button>
+                <button onclick="switchView('detail-view')" class="hover:text-pink-300 transition hidden">รายละเอียด</button> <!-- Hidden by default, accessed via cards -->
+                <button onclick="switchView('terms-view')" class="hover:text-pink-300 transition">เงื่อนไขการเช่า</button>
+                <button onclick="switchView('team-view')" class="hover:text-pink-300 transition">ทีมงาน</button>
+                <button onclick="switchView('admin-view')" class="hover:text-pink-300 transition">แอดมิน</button>
+                
+                <!-- Login Button -->
+                <button onclick="toggleModal('login-modal')" class="ml-4 bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-full transition flex items-center gap-2">
+                    <i class="fa-regular fa-user"></i> เข้าสู่ระบบ
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="w-[90%] md:w-[75%] max-w-7xl mx-auto bg-white/80 backdrop-blur-md shadow-sm min-h-screen flex flex-col my-8 rounded-2xl border border-pink-100 overflow-hidden">
+        
+        <!-- ================= 1. HOME VIEW ================= -->
+        <section id="home-view" class="view-section block fade-in">
+            <!-- Website Banner -->
+            <div class="w-full h-64 md:h-96 bg-gray-300 flex items-center justify-center relative">
+                <div class="absolute inset-0 bg-black/20"></div>
+                <div class="relative text-center text-white p-6">
+                    <h1 class="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">Website Banner</h1>
+                    <p class="text-lg md:text-xl drop-shadow-md">Recommendation, New update, Promotion</p>
+                </div>
+            </div>
+
+            <div class="p-6 md:p-10 space-y-10">
+                <!-- Search Bar -->
+                <div class="bg-gray-100 p-4 rounded-xl flex items-center border border-gray-200 cursor-pointer hover:bg-gray-200 transition" onclick="switchView('search-view')">
+                    <input type="text" placeholder="ค้นหาอุปกรณ์เลย..." class="bg-transparent outline-none w-full text-lg cursor-pointer" readonly>
+                    <i class="fa-solid fa-sliders text-xl text-gray-500"></i>
+                </div>
+
+                <!-- Categories -->
+                <div class="space-y-8">
+                    <!-- Camera -->
+                    <div class="bg-pink-50 p-6 rounded-xl border border-pink-100">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-800">Camera Brands</h2>
+                        <div class="flex flex-wrap gap-4">
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Canon</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Sony</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Nikon</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Fujifilm</span>
+                        </div>
+                    </div>
+
+                    <!-- Lens -->
+                    <div class="bg-pink-50 p-6 rounded-xl border border-pink-100">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-800">Lens</h2>
+                        <div class="flex flex-wrap gap-4">
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Canon</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Sony</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Nikon</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Fujifilm</span>
+                        </div>
+                    </div>
+
+                    <!-- Accessories -->
+                    <div class="bg-pink-50 p-6 rounded-xl border border-pink-100">
+                        <h2 class="text-2xl font-bold mb-4 text-gray-800">Accessories</h2>
+                        <div class="flex flex-wrap gap-4">
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Flash</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Microphone</span>
+                            <span class="px-6 py-2 bg-white rounded-full shadow-sm border border-gray-100 text-gray-700 hover:bg-pink-100 transition cursor-pointer">Stand</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 2. SEARCH VIEW ================= -->
+        <section id="search-view" class="view-section hidden p-6 md:p-10 fade-in">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b border-pink-200 pb-2">ค้นหาอุปกรณ์ (Search)</h2>
+            
+            <!-- Search Bar + Filter -->
+            <div class="flex gap-4 mb-8">
+                <input type="text" placeholder="พิมพ์ชื่ออุปกรณ์ที่ต้องการ..." class="flex-grow p-4 rounded-xl border border-pink-200 focus:outline-none focus:ring-2 focus:ring-[#d896b0]">
+                <button onclick="toggleModal('filter-modal')" class="px-6 py-3 bg-gray-800 text-white rounded-xl hover:bg-gray-700 transition flex items-center justify-center w-16">
+                    <i class="fa-solid fa-sliders text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Product Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Card 1 -->
+                <div class="bg-white rounded-xl shadow-sm border border-pink-100 overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="h-48 bg-gray-200 flex items-center justify-center">
+                        <span class="text-gray-500">picture product</span>
+                    </div>
+                    <div class="p-5 flex flex-col flex-grow items-center text-center bg-gray-50">
+                        <button onclick="switchView('detail-view')" class="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+                            detail
+                        </button>
+                    </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="bg-white rounded-xl shadow-sm border border-pink-100 overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="h-48 bg-gray-200 flex items-center justify-center">
+                        <span class="text-gray-500">picture product</span>
+                    </div>
+                    <div class="p-5 flex flex-col flex-grow items-center text-center bg-gray-50">
+                        <button onclick="switchView('detail-view')" class="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+                            detail
+                        </button>
+                    </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="bg-white rounded-xl shadow-sm border border-pink-100 overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="h-48 bg-gray-200 flex items-center justify-center">
+                        <span class="text-gray-500">picture product</span>
+                    </div>
+                    <div class="p-5 flex flex-col flex-grow items-center text-center bg-gray-50">
+                        <button onclick="switchView('detail-view')" class="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+                            detail
+                        </button>
+                    </div>
+                </div>
+                <!-- Card 4 -->
+                <div class="bg-white rounded-xl shadow-sm border border-pink-100 overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="h-48 bg-gray-200 flex items-center justify-center">
+                        <span class="text-gray-500">picture product</span>
+                    </div>
+                    <div class="p-5 flex flex-col flex-grow items-center text-center bg-gray-50">
+                        <button onclick="switchView('detail-view')" class="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+                            detail
+                        </button>
+                    </div>
+                </div>
+                <!-- Card 5 -->
+                <div class="bg-white rounded-xl shadow-sm border border-pink-100 overflow-hidden flex flex-col hover:shadow-md transition">
+                    <div class="h-48 bg-gray-200 flex items-center justify-center">
+                        <span class="text-gray-500">picture product</span>
+                    </div>
+                    <div class="p-5 flex flex-col flex-grow items-center text-center bg-gray-50">
+                        <button onclick="switchView('detail-view')" class="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
+                            detail
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 3. DETAIL VIEW ================= -->
+        <section id="detail-view" class="view-section hidden p-6 md:p-10 fade-in flex-grow flex flex-col">
+            <button onclick="switchView('search-view')" class="mb-6 text-gray-500 hover:text-[#d896b0] transition w-max">
+                <i class="fa-solid fa-arrow-left mr-2"></i>กลับไปค้นหา
+            </button>
+
+            <!-- Top Half -->
+            <div class="flex flex-col md:flex-row gap-8 mb-8 flex-grow">
+                <!-- Picture -->
+                <div class="md:w-1/2 bg-gray-200 rounded-xl flex items-center justify-center min-h-[300px] border border-gray-300">
+                    <div class="text-center text-gray-500">
+                        <p class="font-bold text-lg">product picture</p>
+                        <p class="text-sm">camera lens accessories source</p>
+                    </div>
+                </div>
+                <!-- Details -->
+                <div class="md:w-1/2 bg-gray-100 rounded-xl p-8 flex flex-col justify-center border border-gray-200">
+                    <div class="text-center text-gray-600 space-y-2">
+                        <p class="font-bold text-xl text-gray-800">product details</p>
+                        <p>brand series model</p>
+                        <p class="text-[#d896b0] font-bold text-2xl">price</p>
+                        <p>pickup/return method</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Half (Full Width) -->
+            <div class="bg-gray-400 text-white rounded-xl p-8 flex items-center justify-center min-h-[150px]">
+                <div class="text-center">
+                    <p class="font-bold text-lg">product details</p>
+                    <p class="text-sm">status available pickup/return method specification</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 4. TERMS VIEW ================= -->
+        <section id="terms-view" class="view-section hidden p-6 md:p-10 fade-in flex-grow flex flex-col">
+            <!-- Scrollable Terms Area -->
+            <div class="bg-gray-200 border border-gray-300 rounded-xl p-8 flex-grow flex items-center justify-center min-h-[400px] mb-6">
+                <h3 class="text-3xl font-bold text-gray-500">terms and conditions</h3>
+            </div>
+
+            <!-- Bottom Actions -->
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="bg-white px-4 py-3 rounded-lg border border-gray-200 shadow-sm flex items-center">
+                    <input type="checkbox" id="agree-terms" class="w-5 h-5 accent-[#d896b0] cursor-pointer">
+                    <label for="agree-terms" class="ml-3 font-medium text-gray-700 cursor-pointer">checkbox (I agree)</label>
+                </div>
+                
+                <div class="flex gap-4">
+                    <button class="px-8 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition font-medium shadow-sm">
+                        denied
+                    </button>
+                    <button class="px-8 py-3 bg-white border border-gray-300 text-gray-800 rounded-xl hover:bg-gray-100 transition font-medium shadow-sm">
+                        accept
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 5. TEAM VIEW ================= -->
+        <section id="team-view" class="view-section hidden p-6 md:p-10 fade-in bg-gray-200">
+            <div class="bg-gray-300 text-center py-4 mb-8 rounded shadow-sm">
+                <h2 class="text-xl font-bold text-gray-700">team member</h2>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-8">
+                <!-- Member 1 -->
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
+                    <div>
+                        <p class="font-bold text-gray-600">picture name</p>
+                        <p class="text-gray-500">contact detail</p>
+                    </div>
+                </div>
+                <!-- Member 2 -->
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
+                    <div>
+                        <p class="font-bold text-gray-600">picture name</p>
+                        <p class="text-gray-500">contact detail</p>
+                    </div>
+                </div>
+                <!-- Member 3 -->
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
+                    <div>
+                        <p class="font-bold text-gray-600">picture name</p>
+                        <p class="text-gray-500">contact detail</p>
+                    </div>
+                </div>
+                <!-- Member 4 -->
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
+                    <div>
+                        <p class="font-bold text-gray-600">picture name</p>
+                        <p class="text-gray-500">contact detail</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Member 5 (Centered) -->
+            <div class="flex justify-center">
+                <div class="bg-gray-300 p-8 min-h-[250px] w-full md:w-1/2 flex items-center justify-center rounded text-center">
+                    <div>
+                        <p class="font-bold text-gray-600">picture name</p>
+                        <p class="text-gray-500">contact detail</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 6. ADMIN VIEW ================= -->
+        <section id="admin-view" class="view-section hidden flex-grow bg-white fade-in">
+            <!-- Header -->
+            <div class="bg-gray-200 p-4 border-b border-gray-300 flex justify-between items-center">
+                <h2 class="font-bold text-gray-700">User Management for Adminstrator</h2>
+                <i class="fa-solid fa-right-from-bracket text-gray-600 cursor-pointer hover:text-black"></i>
+            </div>
+            
+            <div class="flex flex-col md:flex-row h-full min-h-[600px]">
+                <!-- Sidebar -->
+                <div class="w-full md:w-1/4 bg-gray-300 p-4 flex flex-col gap-4 border-r border-gray-400">
+                    <button class="flex items-center gap-3 w-full text-left px-4 py-2 hover:bg-gray-400 rounded transition font-bold text-gray-800">
+                        <i class="fa-regular fa-circle-user"></i> Profile
+                    </button>
+                    <button class="flex items-center gap-3 w-full text-left px-4 py-2 hover:bg-gray-400 rounded transition text-gray-700">
+                        <i class="fa-solid fa-users"></i> Users
+                    </button>
+                    <button class="flex items-center gap-3 w-full text-left px-4 py-2 bg-gray-400 rounded transition font-bold text-black shadow-inner">
+                        <i class="fa-solid fa-box"></i> Products
+                    </button>
+                    <button class="flex items-center gap-3 w-full text-left px-4 py-2 hover:bg-gray-400 rounded transition text-gray-700">
+                        <i class="fa-solid fa-sliders"></i> More
+                    </button>
+                </div>
+                
+                <!-- Main Content (Product Editor) -->
+                <div class="w-full md:w-3/4 p-6 md:p-10 bg-white flex flex-col">
+                    <div class="bg-gray-200 text-center py-2 mb-6 rounded text-gray-600 font-medium">
+                        Product Editor
+                    </div>
+                    
+                    <!-- Form -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow">
+                        <!-- Left Column -->
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-xs mb-1 text-gray-500">Product ID</label>
+                                <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1 text-gray-500">Rent price</label>
+                                <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1 text-gray-500">Status</label>
+                                <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column -->
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-xs mb-1 text-gray-500">Product name</label>
+                                <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1 text-gray-500">Description</label>
+                                <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1 text-gray-500">Rent time</label>
+                                <div class="w-full h-32 bg-[#fcf3f6] rounded flex items-center justify-center text-gray-400 text-sm">
+                                    calendar
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Buttons -->
+                    <div class="flex justify-center gap-6 mt-8">
+                        <button class="px-8 py-2 text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50">Add</button>
+                        <button class="px-8 py-2 text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50">Update</button>
+                        <button class="px-8 py-2 text-gray-700 bg-white border border-gray-300 rounded shadow-sm hover:bg-gray-50">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-6 text-gray-500 w-full mt-auto">
+        <p class="font-bold">Footer</p>
+        <p class="text-sm">Contact Location</p>
+    </footer>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Filter Modal (Advance Search) -->
+    <div id="filter-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white w-[90%] max-w-lg rounded-xl shadow-xl flex flex-col p-6 animate-[fadeIn_0.2s_ease-out]">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold">Advance search tab</h3>
+                <button onclick="toggleModal('filter-modal')" class="text-gray-400 hover:text-gray-700"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            
+            <div class="space-y-4">
+                <button class="w-full py-2 bg-gray-200 rounded text-gray-600 text-sm hover:bg-gray-300">price range</button>
+                <button class="w-full py-2 bg-gray-200 rounded text-gray-600 text-sm hover:bg-gray-300">Release year</button>
+                <button class="w-full py-2 bg-gray-200 rounded text-gray-600 text-sm hover:bg-gray-300">Series</button>
+                
+                <div class="bg-gray-200 rounded p-4 flex gap-4 min-h-[120px]">
+                    <span class="text-sm text-gray-600 w-1/3">Rent time calendar</span>
+                    <div class="bg-gray-300 w-2/3 rounded flex items-center justify-center text-gray-500 text-sm">
+                        calendar
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4 mt-6">
+                <button class="px-6 py-2 bg-gray-200 rounded text-sm hover:bg-gray-300 transition">Save</button>
+                <button onclick="toggleModal('filter-modal')" class="px-6 py-2 bg-gray-200 rounded text-sm hover:bg-gray-300 transition">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login / Signup Modal -->
+    <div id="login-modal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center">
+        <div class="bg-white w-[90%] max-w-2xl rounded-2xl shadow-xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <!-- Header/Tabs -->
+            <div class="bg-gray-400 flex text-white relative">
+                <button onclick="toggleModal('login-modal')" class="absolute right-4 top-3 text-white hover:text-gray-200"><i class="fa-solid fa-xmark text-xl"></i></button>
+                <button onclick="switchAuthTab('login')" id="tab-login" class="flex-1 py-3 text-center font-bold bg-gray-500">LeKhaFong > Log In</button>
+                <button onclick="switchAuthTab('signup')" id="tab-signup" class="flex-1 py-3 text-center text-gray-200 hover:bg-gray-400 transition">LeKhaFong > Sign Up</button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-8">
+                <!-- Log In Form -->
+                <div id="form-login" class="block max-w-sm mx-auto flex flex-col items-center border-4 border-blue-400 rounded-xl p-8 bg-gray-100">
+                    <i class="fa-regular fa-circle-user text-6xl mb-6"></i>
+                    
+                    <div class="w-full space-y-4">
+                        <div>
+                            <label class="block text-xs mb-1 text-gray-600">Username (Email)</label>
+                            <input type="text" class="w-full bg-[#d896b0] text-white placeholder-white/70 border-none rounded p-2 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1 text-gray-600">Password</label>
+                            <input type="password" class="w-full bg-[#d896b0] text-white placeholder-white/70 border-none rounded p-2 focus:outline-none">
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 mt-8 w-full">
+                        <button class="flex-1 py-2 bg-teal-200 text-teal-800 rounded font-medium hover:bg-teal-300">Log In</button>
+                        <button onclick="switchAuthTab('signup')" class="flex-1 py-2 bg-teal-200 text-teal-800 rounded font-medium hover:bg-teal-300">Sign up</button>
+                    </div>
+                </div>
+
+                <!-- Sign Up Form -->
+                <div id="form-signup" class="hidden bg-[#fcf3f6] rounded-xl p-8 relative">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs mb-1 text-gray-600">Firstname</label>
+                            <input type="text" class="w-full bg-blue-200/50 border-none rounded p-2">
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1 text-gray-600">Lastname</label>
+                            <input type="text" class="w-full bg-blue-200/50 border-none rounded p-2">
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1 text-gray-600">Email</label>
+                            <input type="email" class="w-full bg-blue-200/50 border-none rounded p-2">
+                        </div>
+                        <div>
+                            <label class="block text-xs mb-1 text-gray-600">Phone</label>
+                            <input type="tel" class="w-full bg-blue-200/50 border-none rounded p-2">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs mb-1 text-gray-600">Address</label>
+                            <textarea class="w-full bg-blue-200/50 border-none rounded p-2 h-20 resize-none"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-center">
+                        <button class="px-8 py-2 bg-teal-200 text-teal-800 rounded font-medium hover:bg-teal-300">Create an Account</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // SPA View Switcher
+        function switchView(viewId) {
+            // Hide all sections
+            document.querySelectorAll('.view-section').forEach(sec => {
+                sec.classList.remove('block', 'flex');
+                sec.classList.add('hidden');
+            });
+            
+            // Show target
+            const target = document.getElementById(viewId);
+            if(target) {
+                target.classList.remove('hidden');
+                // Use flex for full-height layouts if needed, otherwise block
+                if (['terms-view', 'detail-view', 'admin-view'].includes(viewId)) {
+                    target.classList.add('flex');
+                } else {
+                    target.classList.add('block');
+                }
+            }
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Modal Toggler
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            } else {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // Auth Tabs Switcher inside Login Modal
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('form-login');
+            const signupForm = document.getElementById('form-signup');
+            const tabLogin = document.getElementById('tab-login');
+            const tabSignup = document.getElementById('tab-signup');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                loginForm.classList.add('block');
+                signupForm.classList.add('hidden');
+                signupForm.classList.remove('block');
+                
+                tabLogin.classList.add('bg-gray-500', 'font-bold');
+                tabLogin.classList.remove('text-gray-200', 'hover:bg-gray-400');
+                
+                tabSignup.classList.remove('bg-gray-500', 'font-bold');
+                tabSignup.classList.add('text-gray-200', 'hover:bg-gray-400');
+            } else {
+                signupForm.classList.remove('hidden');
+                signupForm.classList.add('block');
+                loginForm.classList.add('hidden');
+                loginForm.classList.remove('block');
+                
+                tabSignup.classList.add('bg-gray-500', 'font-bold');
+                tabSignup.classList.remove('text-gray-200', 'hover:bg-gray-400');
+                
+                tabLogin.classList.remove('bg-gray-500', 'font-bold');
+                tabLogin.classList.add('text-gray-200', 'hover:bg-gray-400');
+            }
+        }
+    </script>
+</body>
+</html>
