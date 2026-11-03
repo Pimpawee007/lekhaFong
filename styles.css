@@ -1,40 +1,171 @@
 @import "tailwindcss";
+
 /* =========================================
    1. Element Selector (อ้างอิงจากแท็ก HTML)
 ========================================= */
 body {
     font-family: 'IBM Plex Sans Thai', sans-serif;
     background-color: #fcf3f6; /* Pastel pink background */
+    margin: 0;
 }
 
 /* =========================================
-   2. ID Selector (อ้างอิงจาก id="..." ใช้ได้แค่ที่เดียวในหน้า)
+   2. ID Selector 
 ========================================= */
 #main-banner {
-    /* เพิ่มเส้นขอบหนาสีชมพูด้านล่างแบนเนอร์ */
     border-bottom: 5px solid #d896b0; 
 }
 
 /* =========================================
-   3. Class Selector (อ้างอิงจาก class="..." ใช้ซ้ำได้หลายที่)
+   3. Class Selector (Structural Layouts)
+   กำหนดรูปลักษณ์ Container และ Alignment ด้วย CSS
+========================================= */
+/* Navbar Layout */
+.layout-nav-inner {
+    width: 90%;
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Main Content Wrapper */
+.layout-main-wrapper {
+    width: 90%;
+    max-width: 1280px;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Flexbox Alignments */
+.layout-flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.layout-flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.layout-flex-col {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Grid Layouts */
+.layout-grid-cards {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(1, 1fr);
+}
+
+/* Responsive Breakpoints สำหรับ Layout */
+@media (min-width: 768px) {
+    .layout-nav-inner { width: 75%; }
+    .layout-main-wrapper { width: 75%; }
+    .layout-grid-cards { grid-template-columns: repeat(2, 1fr); }
+    
+    /* Admin Page Layout */
+    .layout-admin-page { flex-direction: row !important; }
+    .layout-admin-sidebar { width: 25% !important; border-right: 1px solid #9ca3af; }
+    .layout-admin-content { width: 75% !important; }
+    .layout-grid-2-cols { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (min-width: 1024px) {
+    .layout-grid-cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Admin Layout Base */
+.layout-admin-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 600px;
+    height: 100%;
+}
+.layout-admin-sidebar {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+}
+.layout-admin-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+}
+.layout-grid-2-cols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+}
+
+/* =========================================
+   4. Class Selector (Decorations & Effects)
 ========================================= */
 .fade-in { 
     animation: fadeIn 0.3s ease-in-out; 
 }
-
-/* คลาสทำเอฟเฟกต์ให้กล่องทีมงานเวลาเอาเมาส์ชี้ */
 .team-card-hover {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
-
 .team-card-hover:hover {
-    transform: translateY(-8px); /* เด้งขึ้นบน 8px */
-    box-shadow: 0 10px 25px rgba(232, 145, 174, 0.7); /* เงาสีชมพูฟุ้งๆ */
+    transform: translateY(-8px);
+    box-shadow: 0 10px 25px rgba(232, 145, 174, 0.7); 
 }
 
 /* =========================================
-   ส่วนเสริมอื่นๆ (Scrollbar & Animation)
+   Team Page Layout (โครงสร้างหน้าทีมงาน)
 ========================================= */
+.layout-team-container {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.layout-team-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    max-width: 900px;
+    margin: 0 auto 2rem auto;
+    width: 100%;
+}
+
+@media (min-width: 768px) {
+    .layout-team-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.layout-team-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    min-height: 250px;
+}
+
+.layout-team-img {
+    margin: 0 auto 1rem auto;
+}
+
+.layout-team-member5 {
+    width: 100%;
+    max-width: 435px;
+    margin: 0 auto;
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #d896b0; border-radius: 10px; }
