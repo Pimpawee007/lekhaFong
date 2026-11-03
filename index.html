@@ -343,22 +343,34 @@
     <div id="login-modal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center">
         <div id="auth-box" class="bg-[#FFF5F5] w-[90%] max-w-md rounded-2xl shadow-xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
             <!-- Header/Tabs -->
-            <div class="flex items-center justify-between gap-4 border-b border-[#D9B5BA] bg-[#FFF5F5] px-4 pt-4 sm:px-8">
-                <div role="tablist" aria-label="Account" class="flex gap-6">
-                    <button id="tab-login" role="tab" type="button" aria-selected="true"
-                        onclick="switchAuthTab('login')"
-                        class="relative pb-3 text-[15px] font-medium text-[#4A4A4A] transition-colors">
-                        <!-- <span class="text-xs uppercase tracking-[0.18em] text-[#B39A9E]">LeKhaFong /</span> -->
-                        <span class="ml-1">Log in</span>
-                        <span class="auth-tab-bar absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-[#4A4A4A] transition-opacity"></span>
+            <!-- <div class="relative flex items-end gap-2 bg-[#F0D5D0] px-6 pt-4">
+                <div role="tablist" aria-label="Account" class="flex items-end gap-2">
+                    <button id="tab-login" role="tab" type="button" aria-selected="true" onclick="switchAuthTab('login')"
+                        class="rounded-t-xl px-7 py-3 text-[15px] font-medium transition-colors bg-[#FFF5F5] text-[#4A4A4A]">
+                        Log in
                     </button>
+                    <button id="tab-signup" role="tab" type="button" aria-selected="false" onclick="switchAuthTab('signup')"
+                        class="rounded-t-xl px-7 py-3 text-[15px] font-medium transition-colors bg-[#D9B5BA] text-[#7A6E70] hover:bg-[#E3C3C6]">
+                        Sign up
+                    </button>
+                </div>
 
-                    <button id="tab-signup" role="tab" type="button" aria-selected="false"
-                        onclick="switchAuthTab('signup')"
-                        class="relative pb-3 text-[15px] font-medium text-[#B39A9E] transition-colors">
-                        <!-- <span class="text-xs uppercase tracking-[0.18em] text-[#B39A9E]">LeKhaFong /</span> -->
-                        <span class="ml-1">Sign up</span>
-                        <span class="auth-tab-bar absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-[#4A4A4A] opacity-0 transition-opacity"></span>
+                <button type="button" onclick="toggleModal('login-modal')" aria-label="Close"
+                    class="ml-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full text-[#7A6E70] transition-colors hover:bg-[#D9B5BA] hover:text-[#4A4A4A]">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div> -->
+            <div class="flex items-center justify-between border-b border-[#D9B5BA] bg-[#FFF5F5] px-6 pt-5">
+                <div role="tablist" aria-label="Account" class="flex gap-8">
+                    <button id="tab-login" role="tab" type="button" aria-selected="true" onclick="switchAuthTab('login')"
+                        class="relative pb-3 text-base font-semibold transition-colors text-[#4A4A4A]">
+                        Log in
+                        <span class="auth-tab-bar absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#4A4A4A] transition-opacity"></span>
+                    </button>
+                    <button id="tab-signup" role="tab" type="button" aria-selected="false" onclick="switchAuthTab('signup')"
+                        class="relative pb-3 text-base font-semibold transition-colors text-[#7A6E70] hover:text-[#4A4A4A]">
+                        Sign up
+                        <span class="auth-tab-bar absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#4A4A4A] opacity-0 transition-opacity"></span>
                     </button>
                 </div>
 
@@ -366,9 +378,10 @@
                     class="mb-3 flex h-9 w-9 items-center justify-center rounded-full text-[#7A6E70] transition-colors hover:bg-[#F0D5D0] hover:text-[#4A4A4A]">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
-            </div>  
+            </div>
 
             <!-- Content Area -->
+            
                 <!-- Log In Form -->
                 <div id="form-login" class="block w-full max-w-md mx-auto rounded-2xl bg-[#FFF5F5] px-6 py-8 sm:px-10 text-[#4A4A4A] shadow-[0_1px_0_#D9B5BA,0_24px_48px_-24px_rgba(74,74,74,0.35)]">
 
@@ -424,8 +437,6 @@
                         </div>
                     </form>
                 </div>
-                <!-- ปุ่มเข้าสู่ระบบ -->
-                <button onclick="simulateLogin()" class="w-full mt-8 py-2 bg-teal-200 text-teal-800 rounded font-bold hover:bg-teal-300 shadow-md transition">Log In</button>
 
             <!-- Sign Up Form -->
             <div id="form-signup" class="hidden w-full max-w-2xl mx-auto rounded-2xl bg-[#FFF5F5] px-6 py-8 sm:px-10 text-[#4A4A4A] shadow-[0_1px_0_#D9B5BA,0_24px_48px_-24px_rgba(74,74,74,0.35)]">
@@ -445,7 +456,7 @@
                         </legend>
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div class="flex flex-col gap-1.5">
-                                <label for="su-first" class="text-sm font-medium">First name</label>
+                                <label for="su-first" class="text-sm font-medium">First name <span></span></label>    
                                 <input id="su-first" name="firstName" type="text" autocomplete="given-name" required
                                     class="w-full rounded-md border border-[#D9B5BA] bg-white/70 px-3 py-2.5 text-[15px] placeholder:text-[#B39A9E] transition-colors hover:border-[#C99EA5] focus:border-[#4A4A4A] focus:bg-white focus:outline-none">
                             </div>
@@ -629,12 +640,17 @@
             document.getElementById('form-login').classList.toggle('hidden', !isLogin);
             document.getElementById('form-signup').classList.toggle('hidden', isLogin);
 
+            const box = document.getElementById('auth-box');
+            box.classList.toggle('max-w-md', isLogin);
+            box.classList.toggle('max-w-2xl', !isLogin);
+
             [['tab-login', isLogin], ['tab-signup', !isLogin]].forEach(([id, active]) => {
                 const el = document.getElementById(id);
                 el.setAttribute('aria-selected', active);
-                el.classList.toggle('text-[#4A4A4A]', active);
-                el.classList.toggle('text-[#B39A9E]', !active);
-                el.querySelector('.auth-tab-bar').classList.toggle('opacity-0', !active);
+                el.className = `relative pb-3 text-base font-semibold transition-colors ${active ? 'text-[#4A4A4A]' : 'text-[#7A6E70] hover:text-[#4A4A4A]'}`;
+                
+                const bar = el.querySelector('.auth-tab-bar');
+                if (bar) bar.classList.toggle('opacity-0', !active);
             });
         }       
     </script>
