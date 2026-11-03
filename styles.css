@@ -1,0 +1,17 @@
+body {
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    background-color: #fcf3f6; /* Pastel pink background */
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #d896b0; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #c47a97; }
+
+/* Animation for view transition */
+.fade-in { animation: fadeIn 0.3s ease-in-out; }
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

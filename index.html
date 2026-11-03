@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LeKhaFong Production</title>
     <link rel="icon" type="image" href="lekhaFongLogo.png">
+
+    <!-- Css stylesheet -->
+     <link rel="stylesheet" href="styles.css">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,25 +20,6 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <style>
-        body {
-            font-family: 'IBM Plex Sans Thai', sans-serif;
-            background-color: #fcf3f6; /* Pastel pink background */
-        }
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #d896b0; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #c47a97; }
-
-        /* Animation for view transition */
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
 </head>
 <body class="text-gray-800 antialiased min-h-screen flex flex-col">
 
@@ -257,36 +241,40 @@
         <!-- ================= 5. TEAM VIEW ================= -->
         <section id="team-view" class="view-section hidden p-6 md:p-10 fade-in bg-gray-200">
             <div class="bg-gray-300 text-center py-4 mb-8 rounded shadow-sm">
-                <h2 class="text-xl font-bold text-gray-700">team member</h2>
+                <h2 class="text-xl font-bold text-gray-700">Members | สมาชิก</h2>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-8">
                 <!-- Member 1 -->
                 <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
-                    <div>
-                        <p class="font-bold text-gray-600">picture name</p>
-                        <p class="text-gray-500">contact detail</p>
+                    <div class="members">
+                        <img src="/pic_member/bpw032.jpg" alt="นันท์นภัส" width="200"><br>
+                        <h2>นันท์นภัส ดาวดาษ</h2>
+                        <p class="text-gray-500">6887032</p>
                     </div>
                 </div>
                 <!-- Member 2 -->
                 <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
-                    <div>
-                        <p class="font-bold text-gray-600">picture name</p>
-                        <p class="text-gray-500">contact detail</p>
+                    <div class="members">
+                        <img src="/pic_member/mk039.jpg" alt="พิมพ์ปวีณ์" width="200"><br>
+                        <h2>พิมพ์ปวีณ์ เพชรเจริญ</h2>
+                        <p class="text-gray-500">6887039</p>
                     </div>
                 </div>
                 <!-- Member 3 -->
                 <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
-                    <div>
-                        <p class="font-bold text-gray-600">picture name</p>
-                        <p class="text-gray-500">contact detail</p>
+                    <div class="members">
+                        <img src="/pic_member/guy042.jpg" alt="พีร์ระพี" width="200"><br>
+                        <h2>พีร์ระพี คำฟอง</h2>
+                        <p class="text-gray-500">6887042</p>
                     </div>
                 </div>
                 <!-- Member 4 -->
                 <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center">
-                    <div>
-                        <p class="font-bold text-gray-600">picture name</p>
-                        <p class="text-gray-500">contact detail</p>
+                    <div class="members">
+                        <img src="/pic_member/sun053.jpg" alt="วริทธิ์วัฒน์" width="300"><br>
+                        <h2>วริทธิ์วัฒน์ ศรีตระกูลชัย</h2>
+                        <p class="text-gray-500">6887053</p>
                     </div>
                 </div>
             </div>
@@ -294,9 +282,10 @@
             <!-- Member 5 (Centered) -->
             <div class="flex justify-center">
                 <div class="bg-gray-300 p-8 min-h-[250px] w-full md:w-1/2 flex items-center justify-center rounded text-center">
-                    <div>
-                        <p class="font-bold text-gray-600">picture name</p>
-                        <p class="text-gray-500">contact detail</p>
+                    <div class="members">
+                        <img src="/pic_member/fn066.jpg" alt="อรปรีญา" width="200"><br>
+                        <h2>อรปรีญา ร่มโพธิ์</h2>
+                        <p class="text-gray-500">6887066</p>
                     </div>
                 </div>
             </div>
