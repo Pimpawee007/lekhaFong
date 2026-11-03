@@ -28,7 +28,7 @@
         <div class="w-[75%] max-w-7xl mx-auto flex flex-wrap justify-between items-center">
             <div class="flex items-center gap-2 text-xl font-bold text-pink-300 cursor-pointer" onclick="switchView('home-view')">
                 <img src="lekhaFongLogo.png" alt="logo" width="50">
-                <span>LekhaFong</span>
+                <span class="animate-pulse" style="text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.745);">LekhaFong</span>
             </div>
             
             <!-- Navigation Links -->
@@ -54,7 +54,7 @@
         <!-- ================= 1. HOME VIEW ================= -->
         <section id="home-view" class="view-section block fade-in">
             <!-- Website Banner -->
-            <div class="w-full h-64 md:h-96 bg-gray-300 flex items-center justify-center relative">
+             <div id="main-banner" class="w-full h-64 md:h-96 bg-gray-300 flex items-center justify-center relative">
                 <div class="absolute inset-0 bg-black/20"></div>
                 <div class="relative text-center text-white p-6">
                     <h1 class="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">Website Banner</h1>
@@ -246,33 +246,33 @@
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-8">
                 <!-- Member 1 -->
-                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md">
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md team-card-hover">
                     <div class="members">
-                        <img src="/pic_member/bpw032.jpg" alt="นันท์นภัส" width="200"><br>
+                        <img class="drop-shadow-md" src="/pic_member/bpw032.png" alt="นันท์นภัส" width="200"><br>
                         <h2>นันท์นภัส ดาวดาษ</h2>
                         <p class="text-gray-500">6887032</p>
                     </div>
                 </div>
                 <!-- Member 2 -->
-                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md">
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md team-card-hover">
                     <div class="members">
-                        <img src="/pic_member/mk039.jpg" alt="พิมพ์ปวีณ์" width="200"><br>
+                        <img class="drop-shadow-md" src="/pic_member/mk039.png" alt="พิมพ์ปวีณ์" width="200"><br>
                         <h2>พิมพ์ปวีณ์ เพชรเจริญ</h2>
                         <p class="text-gray-500">6887039</p>
                     </div>
                 </div>
                 <!-- Member 3 -->
-                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md">
-                    <div class="members">
-                        <img src="/pic_member/guy042.jpg" alt="พีร์ระพี" width="200"><br>
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md team-card-hover">
+                    <div class="drop-shadow-md" class="members">
+                        <img src="/pic_member/guy042.png" alt="พีร์ระพี" width="200"><br>
                         <h2>พีร์ระพี คำฟอง</h2>
                         <p class="text-gray-500">6887042</p>
                     </div>
                 </div>
                 <!-- Member 4 -->
-                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md">
-                    <div class="members">
-                        <img src="/pic_member/sun053.jpg" alt="วริทธิ์วัฒน์" width="300"><br>
+                <div class="bg-gray-300 p-8 min-h-[250px] flex items-center justify-center rounded text-center shadow-md team-card-hover">
+                    <div class="drop-shadow-md" class="members">
+                        <img src="/pic_member/sun053.png" alt="วริทธิ์วัฒน์" width="300"><br>
                         <h2>วริทธิ์วัฒน์ ศรีตระกูลชัย</h2>
                         <p class="text-gray-500">6887053</p>
                     </div>
@@ -281,9 +281,9 @@
             
             <!-- Member 5 (Centered) -->
             <div class="flex justify-center">
-                <div class="bg-gray-300 p-8 min-h-[250px] w-full md:w-1/2 flex items-center justify-center rounded text-center shadow-md">
-                    <div class="members">
-                        <img src="/pic_member/fn066.jpg" alt="อรปรีญา" width="200"><br>
+                <div class="bg-gray-300 p-8 min-h-[250px] w-full md:w-1/2 flex items-center justify-center rounded text-center shadow-md team-card-hover">
+                    <div class="drop-shadow-md" class="members">
+                        <img src="/pic_member/fn066.png" alt="อรปรีญา" width="200"><br>
                         <h2>อรปรีญา ร่มโพธิ์</h2>
                         <p class="text-gray-500">6887066</p>
                     </div>
