@@ -70,12 +70,119 @@
         <!-- 2. SEARCH VIEW -->
         <section id="search-view" class="view-section hidden p-6 md:p-10 fade-in">
             <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b border-pink-200 pb-2">ค้นหาอุปกรณ์ (Search)</h2>
+            
+            <!-- (ข้อมูลสมมติเรียงตามตัวอักษร) -->
             <div class="layout-grid-cards">
-                <div class="bg-white rounded-xl shadow-sm border border-pink-100 overflow-hidden layout-flex-col hover:shadow-md transition">
-                    <div class="h-48 bg-gray-200 layout-flex-center"><span class="text-gray-500">picture product</span></div>
-                    <div class="p-5 layout-flex-col flex-grow items-center text-center bg-gray-50">
-                        <button onclick="switchView('detail-view')" class="w-full py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">detail</button>
+                
+                <!-- Product Card 1 -->
+                <div class="layout-product-card">
+                    <div class="product-img-box"><span class="text-gray-500">รูปภาพ: Canon EOS R50</span></div>
+                    <div class="product-info-box">
+                        <h3 class="font-bold text-lg text-gray-800">Canon EOS R50</h3>
+                        <p class="text-pink-600 font-semibold mb-4">500 ฿ / วัน</p>
+                        <button onclick="openProductDetail('Canon EOS R50', 500, 3)" class="w-full mt-auto py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Detail</button>
                     </div>
+                </div>
+
+                <!-- Product Card 2 -->
+                <div class="layout-product-card">
+                    <div class="product-img-box"><span class="text-gray-500">รูปภาพ: EF 18-135mm Lens</span></div>
+                    <div class="product-info-box">
+                        <h3 class="font-bold text-lg text-gray-800">EF 18-135mm Lens</h3>
+                        <p class="text-pink-600 font-semibold mb-4">300 ฿ / วัน</p>
+                        <button onclick="openProductDetail('EF 18-135mm Lens', 300, 5)" class="w-full mt-auto py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Detail</button>
+                    </div>
+                </div>
+
+                <!-- Product Card 3 (Out of stock example) -->
+                <div class="layout-product-card">
+                    <div class="product-img-box"><span class="text-gray-500">รูปภาพ: Fujifilm Instax Mini Evo 2</span></div>
+                    <div class="product-info-box">
+                        <h3 class="font-bold text-lg text-gray-800">Fujifilm Instax Mini Evo 2</h3>
+                        <p class="text-pink-600 font-semibold mb-4">450 ฿ / วัน</p>
+                        <button onclick="openProductDetail('Fujifilm Instax Mini Evo 2', 450, 0)" class="w-full mt-auto py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">Detail</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= 4. TERMS VIEW ================= -->
+        <section id="terms-view" class="view-section hidden p-6 md:p-10 fade-in">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b border-pink-200 pb-2">เงื่อนไขการเช่าอุปกรณ์ (Terms & Conditions)</h2>
+            
+            <!-- กล่องข้อความแนวยยาวแยกเป็นสัดส่วน -->
+            <div class="space-y-4">
+                
+                <!-- กล่องที่ 1 -->
+                <div class="bg-white border border-pink-100 rounded-xl p-6 shadow-sm hover:shadow-md transition">
+                    <h3 class="font-bold text-lg text-pink-700 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-pink-400"></i> 1. การจองและยืนยันการเช่า
+                    </h3>
+                    <p class="text-gray-600 text-sm leading-relaxed pl-6">
+                        ผู้เช่าสามารถค้นหาสินค้าที่ต้องการ และตรวจเช็คสถานะสต็อกได้ในรายละเอียดของสินค้านั้น<br>หากขึ้นว่าพร้อมให้บริการ ผู้เช่าสามารถระบุจำนวนวันที่ต้องการเช่าและกดเช่าได้เลย
+                    </p>
+                </div>
+
+                <!-- กล่องที่ 2 -->
+                <div class="bg-white border border-pink-100 rounded-xl p-6 shadow-sm hover:shadow-md transition">
+                    <h3 class="font-bold text-lg text-pink-700 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check text-pink-400"></i> 2. ความรับผิดชอบต่อความเสียหาย
+                    </h3>
+                    <p class="text-gray-600 text-sm leading-relaxed pl-6">
+                        ผู้เช่าจะต้องตรวจเช็คสภาพอุปกรณ์พร้อมทั้งบันทึกวิดีโอไว้เป็นหลักฐาน เพื่อยืนยันว่าอุปกรณ์ไม่ได้มีความเสียหายก่อนที่จะใช้งาน<br>ผู้เช่าจะต้องเป็นผู้ดูแลอุปกรณ์ตลอดระยะเวลาการเช่า<br>หากเกิดความเสียหายใด ๆ ต่ออุปกรณ์ ผู้เช่าจะต้องจ่ายราคาเต็มของอุปกรณ์นั้นทุกกรณี แม้ว่าจะเป็นอาการผิดปกติที่สามารถซ่อมได้ก็ตาม
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 3. DETAIL VIEW ================= -->
+        <section id="detail-view" class="view-section hidden p-6 md:p-10 fade-in flex-grow layout-flex-col">
+            <button onclick="switchView('search-view')" class="mb-6 text-gray-500 hover:text-[#d896b0] transition w-max">
+                <i class="fa-solid fa-arrow-left mr-2"></i>กลับไปหน้ารายการสินค้า
+            </button>
+
+            <div class="layout-detail-container">
+                <!-- ฝั่งซ้าย: รูปภาพสินค้า -->
+                <div class="detail-image-section">
+                    <div class="w-full h-80 bg-gray-200 rounded-xl layout-flex-center border border-gray-300">
+                        <span class="text-gray-500 font-bold text-lg">รูปสินค้า (ภาพหลัก)</span>
+                    </div>
+                    <div class="img-thumbnail-grid">
+                        <div class="thumbnail-box layout-flex-center"><span class="text-xs text-gray-400">รูป 1</span></div>
+                        <div class="thumbnail-box layout-flex-center"><span class="text-xs text-gray-400">รูป 2</span></div>
+                        <div class="thumbnail-box layout-flex-center"><span class="text-xs text-gray-400">รูป 3</span></div>
+                        <div class="thumbnail-box layout-flex-center"><span class="text-xs text-gray-400">รูป 4</span></div>
+                    </div>
+                </div>
+
+                <!-- ฝั่งขวา: รายละเอียดและการเช่า -->
+                <div class="detail-info-section">
+                    <h2 id="show-product-name" class="text-3xl font-bold text-gray-800 mb-2">ชื่อสินค้า</h2>
+                    <p class="text-sm text-gray-500 mb-4 border-b border-gray-300 pb-4">
+                        รายละเอียดเพิ่มเติม: กล้อง Mirrorless ประสิทธิภาพสูง เหมาะสำหรับการถ่ายภาพและวิดีโอ (ตัวอย่างรายละเอียดดึงจากฐานข้อมูล)
+                    </p>
+                    
+                    <div class="space-y-3 mb-6">
+                        <p class="text-xl"><span class="font-bold text-gray-700">ราคาเช่า: </span> <span id="show-product-price" class="text-[#d896b0] font-bold">0</span> ฿ / วัน</p>
+                        <p><span class="font-bold text-gray-700">สถานะสต็อก: </span> <span id="show-product-stock" class="text-green-600 font-bold">พร้อมเช่า (X รายการ)</span></p>
+                    </div>
+
+                    <!-- ส่วนคำนวณการเช่า -->
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-6">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">ระบุจำนวนวันที่ต้องการเช่า</label>
+                        <div class="flex items-center gap-4">
+                            <input type="number" id="rent-days" min="1" value="1" oninput="calculateRent()" class="w-24 p-2 border border-pink-200 rounded focus:outline-none focus:ring-2 focus:ring-[#d896b0]">
+                            <span class="text-gray-600">วัน</span>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                            <span class="font-bold text-gray-700">ยอดรวมทั้งหมด:</span>
+                            <span class="text-2xl font-bold text-pink-500"><span id="total-rent-price">0</span> ฿</span>
+                        </div>
+                    </div>
+
+                    <button id="btn-rent-action" onclick="handleRentClick()" class="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-lg shadow-md transition text-lg">ทำรายการเช่า
+                    </button>
                 </div>
             </div>
         </section>
@@ -86,10 +193,7 @@
             <div class="bg-gray-300 text-center py-4 mb-8 rounded shadow-sm">
                 <h2 class="text-xl font-bold text-gray-700">Members | สมาชิก</h2>
             </div>
-            
-            <!-- Grid 4 คนแรก -->
             <div class="layout-team-grid">
-                <!-- Member 1 -->
                 <div class="layout-team-card bg-gray-300 rounded text-center shadow-md team-card-hover">
                     <div>
                         <img class="layout-team-img drop-shadow-md" src="/pic_member/bpw032.png" alt="นันท์นภัส" style="width: 200px;"><br>
@@ -97,8 +201,6 @@
                         <p class="text-gray-500">6887032</p>
                     </div>
                 </div>
-
-                <!-- Member 2 -->
                 <div class="layout-team-card bg-gray-300 rounded text-center shadow-md team-card-hover">
                     <div>
                         <img class="layout-team-img drop-shadow-md" src="/pic_member/mk039.png" alt="พิมพ์ปวีณ์" style="width: 200px;"><br>
@@ -106,8 +208,6 @@
                         <p class="text-gray-500">6887039</p>
                     </div>
                 </div>
-
-                <!-- Member 3 -->
                 <div class="layout-team-card bg-gray-300 rounded text-center shadow-md team-card-hover">
                     <div>
                         <img class="layout-team-img drop-shadow-md" src="/pic_member/guy042.png" alt="พีร์ระพี" style="width: 200px;"><br>
@@ -115,8 +215,6 @@
                         <p class="text-gray-500">6887042</p>
                     </div>
                 </div>
-
-                <!-- Member 4 -->
                 <div class="layout-team-card bg-gray-300 rounded text-center shadow-md team-card-hover">
                     <div>
                         <img class="layout-team-img drop-shadow-md" src="/pic_member/sun053.png" alt="วริทธิ์ธวัฒน์" style="width: 300px;"><br>
@@ -125,8 +223,6 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- Member 5 (จัดให้อยู่ตรงกลางด้านล่าง) -->
             <div class="layout-flex-center w-full">
                 <div class="layout-team-card layout-team-member5 bg-gray-300 rounded text-center shadow-md team-card-hover">
                     <div>
@@ -140,7 +236,6 @@
 
         <!-- ================= 6. ADMIN VIEW ================= -->
         <section id="admin-view" class="view-section hidden flex-grow bg-white fade-in layout-flex-col">
-            <!-- Header สำหรับแอดมิน (อยู่บนสุดของแผง Admin ทั้งหมด) -->
             <div class="w-full bg-gray-200 p-4 border-b border-gray-300 layout-flex-between">
                 <h2 class="font-bold text-gray-800 text-lg flex items-center gap-2">
                     <i class="fa-solid fa-shield-halved text-gray-600"></i>
@@ -152,7 +247,6 @@
             </div>
             
             <div class="layout-admin-page bg-gray-50 flex-grow">
-                <!-- Sidebar (ปุ่มเลือกแท็บฝั่งซ้าย) -->
                 <div class="layout-admin-sidebar bg-gray-200 shadow-inner">
                     <button onclick="openAdminTab('admin-profile')" id="btn-admin-profile" class="admin-tab-btn layout-flex-center gap-3 justify-start px-4 py-3 bg-gray-400 rounded transition font-bold text-black shadow-sm">
                         <i class="fa-regular fa-circle-user"></i> Profile
@@ -165,9 +259,7 @@
                     </button>
                 </div>
                 
-                <!-- Main Content (เนื้อหาฝั่งขวา) -->
                 <div class="layout-admin-content bg-white shadow-sm">
-                    
                     <!-- TAB 1: Profile -->
                     <div id="admin-profile" class="admin-tab-content block fade-in">
                         <div class="bg-pink-100 text-center py-2 mb-6 rounded text-pink-800 font-bold shadow-sm">ข้อมูลแอดมิน (Profile)</div>
@@ -185,8 +277,6 @@
                     <!-- TAB 2: Users -->
                     <div id="admin-users" class="admin-tab-content hidden fade-in">
                         <div class="bg-gray-200 text-center py-2 mb-6 rounded text-gray-600 font-bold">ระบบจัดการผู้ใช้ (Users)</div>
-                        
-                        <!-- Users List View -->
                         <div id="user-list-view">
                             <table class="w-full text-left border-collapse bg-white shadow-sm rounded overflow-hidden">
                                 <tr class="bg-gray-800 text-white">
@@ -201,30 +291,14 @@
                                         <button onclick="toggleUserDetails('customer_01', 'cust01@gmail.com')" class="text-blue-500 hover:text-blue-700 underline font-medium">ดูเพิ่มเติม</button>
                                     </td>
                                 </tr>
-                                <tr class="border-b hover:bg-gray-50 transition">
-                                    <td class="p-4">photographer_x</td>
-                                    <td class="p-4">photo.x@gmail.com</td>
-                                    <td class="p-4 text-center">
-                                        <button onclick="toggleUserDetails('photographer_x', 'photo.x@gmail.com')" class="text-blue-500 hover:text-blue-700 underline font-medium">ดูเพิ่มเติม</button>
-                                    </td>
-                                </tr>
                             </table>
                         </div>
-
-                        <!-- Users Detail View -->
                         <div id="user-detail-view" class="hidden">
                             <button onclick="backToUserList()" class="mb-4 text-pink-500 hover:text-pink-700 transition"><i class="fa-solid fa-arrow-left mr-2"></i>กลับหน้ารายชื่อ</button>
                             <div class="bg-gray-50 border border-gray-200 p-8 rounded-xl shadow-sm space-y-4">
                                 <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">รายละเอียดผู้ใช้งาน</h3>
                                 <p><strong>Username:</strong> <span id="dt-user" class="text-gray-600"></span></p>
                                 <p><strong>Email:</strong> <span id="dt-email" class="text-gray-600"></span></p>
-                                <p><strong>ที่อยู่:</strong> 999 ถ.พุทธมณฑลสาย 4 ต.ศาลายา อ.พุทธมณฑล จ.นครปฐม (ข้อมูลสมมติ)</p>
-                                <p><strong>เบอร์โทรติดต่อ:</strong> 081-234-5678</p>
-                                
-                                <div class="flex gap-4 mt-8 pt-4 border-t border-gray-200">
-                                    <button class="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 rounded font-bold shadow transition">Update</button>
-                                    <button class="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded font-bold shadow transition">Delete</button>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -232,8 +306,6 @@
                     <!-- TAB 3: Products -->
                     <div id="admin-products" class="admin-tab-content hidden fade-in">
                         <div class="bg-gray-200 text-center py-2 mb-6 rounded text-gray-600 font-bold">ระบบจัดการสินค้า (Products)</div>
-                        
-                        <!-- Products List View -->
                         <div id="product-list-view">
                             <div class="flex justify-end mb-4">
                                 <button onclick="showAddProduct()" class="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded font-bold shadow transition layout-flex-center gap-2">
@@ -255,18 +327,8 @@
                                         <button onclick="toggleProductDetails('CAM-001', 'Canon EOS R50', '3')" class="text-blue-500 hover:text-blue-700 underline font-medium">ดูเพิ่มเติม</button>
                                     </td>
                                 </tr>
-                                <tr class="border-b hover:bg-gray-50 transition">
-                                    <td class="p-4">CAM-002</td>
-                                    <td class="p-4">Sony A7IV</td>
-                                    <td class="p-4">5</td>
-                                    <td class="p-4 text-center">
-                                        <button onclick="toggleProductDetails('CAM-002', 'Sony A7IV', '5')" class="text-blue-500 hover:text-blue-700 underline font-medium">ดูเพิ่มเติม</button>
-                                    </td>
-                                </tr>
                             </table>
                         </div>
-
-                        <!-- Products Detail (Update/Delete) View -->
                         <div id="product-detail-view" class="hidden">
                             <button onclick="backToProductList()" class="mb-4 text-pink-500 hover:text-pink-700 transition"><i class="fa-solid fa-arrow-left mr-2"></i>กลับหน้ารายการสินค้า</button>
                             <div class="bg-gray-50 border border-gray-200 p-8 rounded-xl shadow-sm space-y-4">
@@ -277,62 +339,16 @@
                                             <label class="block text-xs mb-1 text-gray-500">Product ID</label>
                                             <input type="text" id="pd-id" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
                                         </div>
-                                        <div>
-                                            <label class="block text-xs mb-1 text-gray-500">Rent price (ราคาเช่า)</label>
-                                            <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300" value="500">
-                                        </div>
                                     </div>
-                                    <div class="space-y-6">
-                                        <div>
-                                            <label class="block text-xs mb-1 text-gray-500">Product Name (ชื่อสินค้า)</label>
-                                            <input type="text" id="pd-name" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs mb-1 text-gray-500">Stock (สต็อกคงเหลือ)</label>
-                                            <input type="number" id="pd-stock" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex justify-center gap-6 mt-8 pt-4 border-t border-gray-200">
-                                    <button class="px-8 py-2 text-yellow-900 bg-yellow-400 hover:bg-yellow-500 font-bold rounded shadow transition">Update</button>
-                                    <button class="px-8 py-2 text-white bg-red-500 hover:bg-red-600 font-bold rounded shadow transition">Delete</button>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Products Add View -->
                         <div id="product-add-view" class="hidden">
                             <button onclick="backToProductList()" class="mb-4 text-pink-500 hover:text-pink-700 transition"><i class="fa-solid fa-arrow-left mr-2"></i>ยกเลิก</button>
                             <div class="bg-gray-50 border border-gray-200 p-8 rounded-xl shadow-sm space-y-4">
                                 <h3 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">เพิ่มสินค้าใหม่ (Add Product)</h3>
-                                <div class="layout-grid-2-cols flex-grow">
-                                    <div class="space-y-6">
-                                        <div>
-                                            <label class="block text-xs mb-1 text-gray-500">Product ID</label>
-                                            <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300" placeholder="e.g. CAM-003">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs mb-1 text-gray-500">Rent price (ราคาเช่า)</label>
-                                            <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300" placeholder="e.g. 1000">
-                                        </div>
-                                    </div>
-                                    <div class="space-y-6">
-                                        <div>
-                                            <label class="block text-xs mb-1 text-gray-500">Product Name (ชื่อสินค้า)</label>
-                                            <input type="text" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300" placeholder="e.g. Fujifilm X-T5">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs mb-1 text-gray-500">Stock (สต็อกคงเหลือ)</label>
-                                            <input type="number" class="w-full bg-[#fcf3f6] border-none rounded p-2 focus:ring-2 focus:ring-pink-300" placeholder="e.g. 2">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex justify-center mt-8 pt-4 border-t border-gray-200">
-                                    <button class="px-8 py-2 text-white bg-pink-500 hover:bg-pink-600 font-bold rounded shadow transition">Save / Add</button>
-                                </div>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -340,22 +356,62 @@
         
     </main>
 
+    <!-- Modal พื้นที่ (ไม่ต้องอยู่ใน Section) -->
+    
+    <!-- Rent Contract Pop-up Modal -->
+    <div id="rent-contract-modal" class="fixed inset-0 bg-black/60 z-50 hidden layout-flex-center">
+        <div class="bg-white w-[90%] max-w-lg rounded-2xl shadow-xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div class="bg-gray-800 p-4 relative text-center text-white font-bold">
+                ข้อตกลงและสัญญาการเช่าอุปกรณ์
+                <button onclick="toggleModal('rent-contract-modal')" class="absolute right-4 top-4 hover:text-gray-300"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-6 bg-gray-50">
+                <div class="bg-white border border-gray-200 p-4 rounded h-48 overflow-y-auto mb-6 text-sm text-gray-600">
+                    <h4 class="font-bold mb-2">เงื่อนไขการเช่าอุปกรณ์ (LeKhaFong Production)</h4>
+                    <p>1. ผู้เช่าต้องดูแลรักษาอุปกรณ์ให้อยู่ในสภาพสมบูรณ์...</p>
+                    <p>2. กรณีเกิดความเสียหาย ผู้เช่าต้องรับผิดชอบค่าซ่อมแซม...</p>
+                    <p>3. หากคืนอุปกรณ์ล่าช้า จะมีค่าปรับตามที่กำหนด...</p>
+                </div>
+                
+                <div class="flex gap-4">
+                    <button onclick="toggleModal('rent-contract-modal')" class="flex-1 py-2 bg-gray-300 text-gray-700 rounded font-bold hover:bg-gray-400 transition">ปิด / ยกเลิก</button>
+                    <button onclick="confirmRent()" class="flex-1 py-2 bg-pink-500 text-white rounded font-bold hover:bg-pink-600 shadow transition">ยอมรับและเช่าสินค้า</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rent Success Pop-up Modal (หน้าต่างเสร็จสิ้นการเช่า) -->
+    <div id="rent-success-modal" class="fixed inset-0 bg-black/60 z-50 hidden layout-flex-center">
+        <div class="bg-white w-[90%] max-w-sm rounded-xl shadow-lg border border-gray-800 overflow-hidden animate-[fadeIn_0.2s_ease-out] p-8 layout-flex-col items-center text-center relative">
+            <!-- Icon สีเขียวตามดีไซน์ -->
+            <div class="w-32 h-32 bg-[#1ea744] rounded-full layout-flex-center mb-6 shadow-sm">
+                <i class="fa-solid fa-check text-white text-6xl"></i>
+            </div>
+            
+            <!-- ข้อความขอบคุณ -->
+            <p class="text-gray-800 text-lg mb-1">สัญญาเช่าเสร็จสมบูรณ์...</p>
+            <p class="text-gray-800 text-lg mb-1">ขอบคุณที่ไว้ใจและใช้บริการ</p>
+            <p class="text-gray-900 text-xl font-bold mb-8">LekhaFong Production</p>
+            
+            <!-- ปุ่มเรียบร้อย -->
+            <button onclick="closeSuccessModal()" class="px-8 py-2 bg-[#1ea744] hover:bg-green-700 text-white font-bold rounded-lg shadow-md transition text-lg w-3/4">
+                เรียบร้อย
+            </button>
+        </div>
+    </div>
+
     <!-- Login / Signup Modal -->
     <div id="login-modal" class="fixed inset-0 bg-black/60 z-50 hidden layout-flex-center">
         <div class="bg-white w-[90%] max-w-2xl rounded-2xl shadow-xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
-            <!-- Header/Tabs สลับหน้า Log In และ Sign Up -->
             <div class="bg-gray-400 flex text-white relative">
                 <button onclick="toggleModal('login-modal')" class="absolute right-4 top-3 text-white hover:text-gray-200 z-10"><i class="fa-solid fa-xmark text-xl"></i></button>
                 <button onclick="switchAuthTab('login')" id="tab-login" class="flex-1 py-3 text-center font-bold bg-gray-500">LeKhaFong > Log In</button>
                 <button onclick="switchAuthTab('signup')" id="tab-signup" class="flex-1 py-3 text-center text-gray-200 hover:bg-gray-400 transition">LeKhaFong > Sign Up</button>
             </div>
-
-            <!-- Content Area -->
             <div class="p-8 bg-gray-50">
-                <!-- Log In Form -->
                 <div id="form-login" class="block max-w-sm mx-auto flex flex-col items-center border-4 border-blue-400 rounded-xl p-8 bg-gray-100 shadow-sm">
                     <i class="fa-regular fa-circle-user text-6xl mb-6 text-gray-400"></i>
-                    
                     <div class="w-full space-y-4">
                         <div>
                             <label class="block text-xs mb-1 text-gray-600">Username (Email)</label>
@@ -366,36 +422,22 @@
                             <input type="password" class="w-full bg-[#d896b0] text-white placeholder-white/70 border-none rounded p-2 focus:outline-none">
                         </div>
                     </div>
-                    
                     <div class="flex gap-4 mt-8 w-full">
                         <button onclick="simulateLogin()" class="flex-1 py-2 bg-teal-200 text-teal-800 rounded font-bold hover:bg-teal-300 shadow transition">Log In</button>
                         <button onclick="switchAuthTab('signup')" class="flex-1 py-2 bg-teal-200 text-teal-800 rounded font-bold hover:bg-teal-300 shadow transition">Sign up</button>
                     </div>
                 </div>
 
-                <!-- Sign Up Form -->
                 <div id="form-signup" class="hidden bg-[#fcf3f6] rounded-xl p-8 border border-pink-100 shadow-sm">
                     <h3 class="text-lg font-bold text-gray-700 mb-4 text-center border-b border-pink-200 pb-2">สร้างบัญชีผู้ใช้ใหม่ (Sign Up)</h3>
                     <div class="layout-grid-2-cols gap-4">
                         <div class="space-y-3">
-                            <div>
-                                <label class="block text-xs mb-1 text-gray-600">Firstname (ชื่อจริง)</label>
-                                <input type="text" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none">
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-gray-600">Email (อีเมล)</label>
-                                <input type="email" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none">
-                            </div>
+                            <div><label class="block text-xs mb-1 text-gray-600">Firstname (ชื่อจริง)</label><input type="text" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none"></div>
+                            <div><label class="block text-xs mb-1 text-gray-600">Email (อีเมล)</label><input type="email" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none"></div>
                         </div>
                         <div class="space-y-3">
-                            <div>
-                                <label class="block text-xs mb-1 text-gray-600">Lastname (นามสกุล)</label>
-                                <input type="text" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none">
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-gray-600">Phone (เบอร์โทรศัพท์)</label>
-                                <input type="tel" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none">
-                            </div>
+                            <div><label class="block text-xs mb-1 text-gray-600">Lastname (นามสกุล)</label><input type="text" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none"></div>
+                            <div><label class="block text-xs mb-1 text-gray-600">Phone (เบอร์โทรศัพท์)</label><input type="tel" class="w-full bg-blue-100/60 border-none rounded p-2 focus:ring-2 focus:ring-pink-300 outline-none"></div>
                         </div>
                     </div>
                     <div class="mt-4">
@@ -412,17 +454,20 @@
 
     <!-- Scripts -->
     <script>
-        // เปลี่ยนหน้าหลัก
+        // เปลี่ยนหน้าหลัก (รองรับ detail-view)
         function switchView(viewId) {
             document.querySelectorAll('.view-section').forEach(sec => {
-                sec.classList.remove('block', 'flex');
+                sec.classList.remove('block', 'flex', 'layout-flex-col');
                 sec.classList.add('hidden');
             });
             const target = document.getElementById(viewId);
             if(target) {
                 target.classList.remove('hidden');
-                if (viewId === 'admin-view') target.classList.add('flex');
-                else target.classList.add('block');
+                if (viewId === 'admin-view' || viewId === 'detail-view') {
+                    target.classList.add('flex', 'layout-flex-col');
+                } else {
+                    target.classList.add('block');
+                }
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -439,55 +484,42 @@
             }
         }
 
-        // สลับระหว่าง Log In และ Sign Up ภายใน Modal
+        // สลับแท็บ Log In / Sign Up
         function switchAuthTab(tab) {
             const loginForm = document.getElementById('form-login');
             const signupForm = document.getElementById('form-signup');
             const tabLogin = document.getElementById('tab-login');
             const tabSignup = document.getElementById('tab-signup');
-
             if (!loginForm || !signupForm) return;
 
             if (tab === 'login') {
                 loginForm.style.display = 'flex';
                 loginForm.classList.remove('hidden');
-                loginForm.classList.add('block');
                 signupForm.style.display = 'none';
                 signupForm.classList.add('hidden');
-                signupForm.classList.remove('block');
-                
                 tabLogin.classList.add('bg-gray-500', 'font-bold');
                 tabLogin.classList.remove('text-gray-200', 'hover:bg-gray-400');
-                
                 tabSignup.classList.remove('bg-gray-500', 'font-bold');
                 tabSignup.classList.add('text-gray-200', 'hover:bg-gray-400');
             } else {
                 signupForm.style.display = 'block';
                 signupForm.classList.remove('hidden');
-                signupForm.classList.add('block');
                 loginForm.style.display = 'none';
                 loginForm.classList.add('hidden');
-                loginForm.classList.remove('block');
-                
                 tabSignup.classList.add('bg-gray-500', 'font-bold');
                 tabSignup.classList.remove('text-gray-200', 'hover:bg-gray-400');
-                
                 tabLogin.classList.remove('bg-gray-500', 'font-bold');
                 tabLogin.classList.add('text-gray-200', 'hover:bg-gray-400');
             }
         }
 
-        // ---------------- ระบบ ADMIN ----------------
-        
-        // จำลองการล็อกอินเพื่อโชว์ปุ่ม Admin และ Redirect ให้ทันที
+        // ระบบ ADMIN
         function simulateLogin() {
             const user = document.getElementById('login-username').value;
             if(user.toLowerCase() === 'admin' || user === '') {
                 document.getElementById('nav-admin-link').classList.remove('hidden');
                 document.getElementById('nav-login-btn').classList.add('hidden');
-                
                 toggleModal('login-modal');
-                
                 switchView('admin-view');
                 openAdminTab('admin-profile'); 
             } else {
@@ -495,14 +527,12 @@
             }
         }
 
-        // ออกจากระบบแอดมิน
         function logoutAdmin() {
             document.getElementById('nav-admin-link').classList.add('hidden');
             document.getElementById('nav-login-btn').classList.remove('hidden');
             switchView('home-view');
         }
 
-        // เปลี่ยนแท็บย่อยในหน้า Admin
         function openAdminTab(tabId) {
             document.querySelectorAll('.admin-tab-content').forEach(tab => {
                 tab.classList.remove('block');
@@ -512,49 +542,71 @@
                 btn.classList.remove('bg-gray-400', 'font-bold', 'text-black', 'shadow-sm');
                 btn.classList.add('text-gray-700', 'hover:bg-gray-300');
             });
-            
             document.getElementById(tabId).classList.remove('hidden');
             document.getElementById(tabId).classList.add('block');
-            
             const activeBtn = document.getElementById('btn-' + tabId);
             activeBtn.classList.add('bg-gray-400', 'font-bold', 'text-black', 'shadow-sm');
             activeBtn.classList.remove('text-gray-700', 'hover:bg-gray-300');
         }
 
-        // ---------------- ระบบย่อย Users ----------------
-        function toggleUserDetails(username, email) {
-            document.getElementById('user-list-view').classList.add('hidden');
-            document.getElementById('user-detail-view').classList.remove('hidden');
-            document.getElementById('dt-user').innerText = username;
-            document.getElementById('dt-email').innerText = email;
-        }
+        // ---------------- ระบบ Detail & คำนวณการเช่า (อัปเดตใหม่) ----------------
+        let currentProductPrice = 0;
+        let currentProductStock = 0;
 
-        function backToUserList() {
-            document.getElementById('user-detail-view').classList.add('hidden');
-            document.getElementById('user-list-view').classList.remove('hidden');
-        }
-
-        // ---------------- ระบบย่อย Products ----------------
-        function toggleProductDetails(id, name, stock) {
-            document.getElementById('product-list-view').classList.add('hidden');
-            document.getElementById('product-add-view').classList.add('hidden');
-            document.getElementById('product-detail-view').classList.remove('hidden');
+        function openProductDetail(name, price, stock) {
+            document.getElementById('show-product-name').innerText = name;
+            document.getElementById('show-product-price').innerText = price;
             
-            document.getElementById('pd-id').value = id;
-            document.getElementById('pd-name').value = name;
-            document.getElementById('pd-stock').value = stock;
+            currentProductPrice = price;
+            currentProductStock = stock;
+            
+            const stockElement = document.getElementById('show-product-stock');
+            const rentBtn = document.getElementById('btn-rent-action');
+
+            if(stock > 0) {
+                stockElement.innerText = `พร้อมเช่า (${stock} รายการ)`;
+                stockElement.className = "text-green-600 font-bold";
+                rentBtn.classList.remove('btn-disabled');
+                rentBtn.classList.add('bg-pink-500', 'hover:bg-pink-600');
+            } else {
+                stockElement.innerText = `สินค้าหมด (Out of stock)`;
+                stockElement.className = "text-red-600 font-bold";
+                rentBtn.classList.remove('bg-pink-500', 'hover:bg-pink-600');
+                rentBtn.classList.add('btn-disabled');
+            }
+
+            document.getElementById('rent-days').value = 1;
+            calculateRent();
+            switchView('detail-view');
         }
 
-        function showAddProduct() {
-            document.getElementById('product-list-view').classList.add('hidden');
-            document.getElementById('product-detail-view').classList.add('hidden');
-            document.getElementById('product-add-view').classList.remove('hidden');
+        function calculateRent() {
+            const days = document.getElementById('rent-days').value;
+            const total = currentProductPrice * (days > 0 ? days : 0);
+            document.getElementById('total-rent-price').innerText = total;
         }
 
-        function backToProductList() {
-            document.getElementById('product-detail-view').classList.add('hidden');
-            document.getElementById('product-add-view').classList.add('hidden');
-            document.getElementById('product-list-view').classList.remove('hidden');
+        function handleRentClick() {
+            const rentBtn = document.getElementById('btn-rent-action');
+            if (currentProductStock > 0) {
+                toggleModal('rent-contract-modal');
+            } else {
+                rentBtn.classList.remove('shake-animation');
+                void rentBtn.offsetWidth; 
+                rentBtn.classList.add('shake-animation');
+            }
+        }
+
+        function confirmRent() {
+            // ปิด Modal สัญญาเช่า และเปิด Modal เสร็จสิ้นแทน
+            toggleModal('rent-contract-modal');
+            toggleModal('rent-success-modal');
+        }
+
+        function closeSuccessModal() {
+            // เมื่อกดปุ่มเรียบร้อยใน Modal เสร็จสิ้น ให้ปิด Modal และกลับหน้าโฮม
+            toggleModal('rent-success-modal');
+            switchView('home-view');
         }
     </script>
 </body>
