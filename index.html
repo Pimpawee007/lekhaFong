@@ -52,7 +52,7 @@
         
         <!-- 1. HOME VIEW -->
         <section id="home-view" class="view-section block fade-in">
-             <div id="main-banner" class="w-full h-64 md:h-96 bg-gray-300 layout-flex-center relative">
+            <div id="main-banner" class="w-full h-64 md:h-96 bg-gray-300 layout-flex-center relative">
                 <div class="absolute inset-0 bg-black/20"></div>
                 <div class="relative text-center text-white p-6">
                     <h1 class="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">Website Banner</h1>
@@ -60,10 +60,21 @@
                 </div>
             </div>
             <div class="p-6 md:p-10 space-y-10">
-                <div class="bg-gray-100 p-4 rounded-xl layout-flex-between border border-gray-200 cursor-pointer hover:bg-gray-200 transition" onclick="switchView('search-view')">
-                    <input type="text" placeholder="ค้นหาอุปกรณ์เลย..." class="bg-transparent outline-none w-full text-lg cursor-pointer" readonly>
-                    <i class="fa-solid fa-sliders text-xl text-gray-500"></i>
+
+                <!-- [แก้] Search Bar: กดแล้วเปิด Advance Search Modal -->
+                <div
+                    class="bg-gray-100 p-4 rounded-xl layout-flex-between border border-gray-200 cursor-pointer hover:bg-gray-200 transition"
+                    onclick="openAdvanceSearch()" >
+                    <input
+                        type="text"
+                        placeholder="ค้นหาอุปกรณ์เลย..."
+                        class="bg-transparent outline-none w-full text-lg cursor-pointer"
+                        readonly >
+                    <!-- [แก้] กด Filter แล้วเปิด Advance Search -->
+                    <i class="fa-solid fa-sliders text-xl text-gray-500"
+                        onclick="event.stopPropagation(); openAdvanceSearch();" ></i>
                 </div>
+
             </div>
         </section>
 
@@ -339,27 +350,208 @@
         
     </main>
 
+    <!-- ========================================================= -->
+    <!-- [เพิ่ม] ADVANCE SEARCH MODAL -->
+    <!-- ========================================================= -->
+
+    <div
+        id="advance-search-modal"
+        class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4"
+    >
+        <!-- Modal -->
+        <div
+            class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-[#FCF9F9] shadow-2xl"
+        >
+
+            <!-- [เพิ่ม] ปุ่ม Close มุมขวาบน -->
+            <button
+                type="button"
+                onclick="closeAdvanceSearch()"
+                class="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center text-[#7A6E70] hover:bg-[#F0D5D0] hover:text-[#4A4A4A] transition"
+            >
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+
+
+            <!-- [เพิ่ม] Header -->
+            <div class="px-8 pt-8 pb-5 border-b border-dashed border-[#D9B5BA]">
+
+                <p class="text-xs font-medium uppercase tracking-[0.18em] text-[#7A6E70]">
+                    LEKHAFONG
+                </p>
+
+                <h2 class="mt-2 font-serif text-4xl italic text-[#4A4A4A]">
+                    Advance Search
+                </h2>
+
+                <p class="mt-1 text-sm text-[#7A6E70]">
+                    ค้นหาขั้นสูง
+                </p>
+
+            </div>
+
+
+            <!-- [เพิ่ม] Form -->
+            <div class="px-8 py-7 space-y-5">
+
+                <!-- Price Range -->
+                <div>
+                    <label class="block mb-2 text-sm font-medium text-[#4A4A4A]">
+                        Price range
+                    </label>
+
+                    <select
+                        id="filter-price"
+                        class="w-full rounded-xl border border-[#D9B5BA] bg-[#F7EFF1] px-4 py-3 outline-none focus:border-[#C84B8A]"
+                    >
+                        <option value="">ทุกช่วงราคา</option>
+                        <option value="0-500">0 - 500 บาท</option>
+                        <option value="501-1000">501 - 1,000 บาท</option>
+                        <option value="1001-2000">1,001 - 2,000 บาท</option>
+                        <option value="2001+">มากกว่า 2,000 บาท</option>
+                    </select>
+                </div>
+
+
+                <!-- Release Year -->
+                <div>
+                    <label class="block mb-2 text-sm font-medium text-[#4A4A4A]">
+                        Release year
+                    </label>
+
+                    <select
+                        id="filter-year"
+                        class="w-full rounded-xl border border-[#D9B5BA] bg-[#F7EFF1] px-4 py-3 outline-none focus:border-[#C84B8A]"
+                    >
+                        <option value="">ทุกปี</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <option value="2022">2022</option>
+                    </select>
+                </div>
+
+
+                <!-- Series -->
+                <div>
+                    <label class="block mb-2 text-sm font-medium text-[#4A4A4A]">
+                        Series
+                    </label>
+
+                    <select
+                        id="filter-series"
+                        class="w-full rounded-xl border border-[#D9B5BA] bg-[#F7EFF1] px-4 py-3 outline-none focus:border-[#C84B8A]"
+                    >
+                        <option value="">ทุก Series</option>
+                        <option value="Canon">Canon</option>
+                        <option value="Sony">Sony</option>
+                        <option value="Fujifilm">Fujifilm</option>
+                    </select>
+                </div>
+
+
+                <!-- Rent Calendar -->
+                <div>
+
+                    <label class="block mb-2 text-sm font-medium text-[#4A4A4A]">
+                        Rent time calendar
+                    </label>
+
+                    <div class="grid grid-cols-1 md:grid-cols-[150px_1fr] gap-4 p-4 rounded-xl bg-[#F7EFF1] border border-[#D9B5BA]">
+
+                        <!-- Left -->
+                        <div class="flex items-center text-sm text-[#4A4A4A]">
+                            Rent time
+                        </div>
+
+                        <!-- Right -->
+                        <div class="space-y-3">
+
+                            <div class="grid grid-cols-2 gap-3">
+
+                                <div>
+                                    <label class="block text-xs text-[#7A6E70] mb-1">
+                                        วันเริ่มเช่า
+                                    </label>
+
+                                    <input
+                                        id="rent-start-date"
+                                        type="date"
+                                        class="w-full rounded-lg border border-[#D9B5BA] bg-white px-3 py-2 outline-none"
+                                    >
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs text-[#7A6E70] mb-1">
+                                        วันคืน
+                                    </label>
+
+                                    <input
+                                        id="rent-end-date"
+                                        type="date"
+                                        class="w-full rounded-lg border border-[#D9B5BA] bg-white px-3 py-2 outline-none"
+                                    >
+                                </div>
+
+                            </div>
+
+
+                            <div class="grid grid-cols-2 gap-3">
+
+                                <div>
+                                    <label class="block text-xs text-[#7A6E70] mb-1">
+                                        เวลาเริ่ม
+                                    </label>
+
+                                    <input
+                                        id="rent-start-time"
+                                        type="time"
+                                        class="w-full rounded-lg border border-[#D9B5BA] bg-white px-3 py-2 outline-none"
+                                    >
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs text-[#7A6E70] mb-1">
+                                        เวลาคืน
+                                    </label>
+
+                                    <input
+                                        id="rent-end-time"
+                                        type="time"
+                                        class="w-full rounded-lg border border-[#D9B5BA] bg-white px-3 py-2 outline-none"
+                                    >
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Buttons -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-dashed border-[#D9B5BA]">
+
+                    <!-- [เพิ่ม] Save -->
+                    <button
+                        type="button"
+                        onclick="saveAdvanceSearch()"
+                        class="px-6 py-3 rounded-lg bg-[#4A4A4A] text-white hover:bg-[#3A3A3A] transition"
+                    >
+                        Save
+                    </button>
+
+                    <!-- [เพิ่ม] Close -->
+                    <button
+                        type="button"
+                        onclick="closeAdvanceSearch()"
+                        class="px-6 py-3 rounded-lg bg-gray-200 text-[#4A4A4A] hover:bg-gray-300 transition">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Login / Signup Modal -->
     <div id="login-modal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center">
         <div id="auth-box" class="bg-[#FFF5F5] w-[90%] max-w-md rounded-2xl shadow-xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
             <!-- Header/Tabs -->
-            <!-- <div class="relative flex items-end gap-2 bg-[#F0D5D0] px-6 pt-4">
-                <div role="tablist" aria-label="Account" class="flex items-end gap-2">
-                    <button id="tab-login" role="tab" type="button" aria-selected="true" onclick="switchAuthTab('login')"
-                        class="rounded-t-xl px-7 py-3 text-[15px] font-medium transition-colors bg-[#FFF5F5] text-[#4A4A4A]">
-                        Log in
-                    </button>
-                    <button id="tab-signup" role="tab" type="button" aria-selected="false" onclick="switchAuthTab('signup')"
-                        class="rounded-t-xl px-7 py-3 text-[15px] font-medium transition-colors bg-[#D9B5BA] text-[#7A6E70] hover:bg-[#E3C3C6]">
-                        Sign up
-                    </button>
-                </div>
-
-                <button type="button" onclick="toggleModal('login-modal')" aria-label="Close"
-                    class="ml-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full text-[#7A6E70] transition-colors hover:bg-[#D9B5BA] hover:text-[#4A4A4A]">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
-            </div> -->
             <div class="flex items-center justify-between border-b border-[#D9B5BA] bg-[#FFF5F5] px-6 pt-5">
                 <div role="tablist" aria-label="Account" class="flex gap-8">
                     <button id="tab-login" role="tab" type="button" aria-selected="true" onclick="switchAuthTab('login')"
@@ -524,20 +716,87 @@
     <!-- Scripts -->
     <script>
         // เปลี่ยนหน้าหลัก
-        function switchView(viewId) {
+        function switchView(viewId, addHistory = true) {
+            // ซ่อนทุกหน้า
             document.querySelectorAll('.view-section').forEach(sec => {
                 sec.classList.remove('block', 'flex');
                 sec.classList.add('hidden');
             });
+            // หา View ที่ต้องการ
             const target = document.getElementById(viewId);
-            if(target) {
+            if (target) {
                 target.classList.remove('hidden');
-                if (viewId === 'admin-view') target.classList.add('flex');
-                else target.classList.add('block');
+                if (viewId === 'admin-view') {
+                    target.classList.add('flex');
+                } else {
+                    target.classList.add('block');
+                }
             }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // แปลง ID เป็นชื่อ Page
+            const pageMap = {
+                'home-view': 'home',
+                'search-view': 'search',
+                'terms-view': 'terms',
+                'team-view': 'team',
+                'admin-view': 'admin',
+                'detail-view': 'detail'
+            };
+            const page = pageMap[viewId] || 'home';
+            // [เพิ่ม] บันทึก History
+            if (addHistory) {
+                history.pushState(
+                    {
+                        page: page
+                    },
+                    '',
+                    `?page=${page}`
+                );
+            }
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
         }
+        // =========================================================
+        // [เพิ่ม] ADVANCE SEARCH OPEN
+        // =========================================================
+        // =========================================================
+        // [เพิ่ม] เปิด / ปิด / ซ่อน Advance Search ในฟังก์ชันเดียว
+        // =========================================================
 
+        function toggleAdvanceSearch(action) {
+            const modal = document.getElementById('advance-search-modal');
+            // เปิด
+            if (action === 'open') {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                history.pushState(
+                    {
+                        page: getCurrentPage(),
+                        modal: 'advance-search'
+                    },
+                    '',
+                    `?page=${getCurrentPage()}#advance-search`
+                );
+            }
+            // ปิด
+            else if (action === 'close') {
+                if (
+                    history.state &&
+                    history.state.modal === 'advance-search'
+                ) {
+                    history.back();
+                } else {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            }
+            // ซ่อนเฉย ๆ
+            else if (action === 'hide') {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
         // เปิด/ปิด Modal
         function toggleModal(modalId) {
             const modal = document.getElementById(modalId);
@@ -551,7 +810,6 @@
         }
 
         // ---------------- ระบบ ADMIN ----------------
-        
         // จำลองการล็อกอินเพื่อโชว์ปุ่ม Admin และ Redirect ให้ทันที
         function simulateLogin() {
             const user = document.getElementById('login-username').value;
