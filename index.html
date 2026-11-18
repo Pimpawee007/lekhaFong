@@ -27,7 +27,7 @@
         <div class="layout-nav-inner">
             <div class="layout-flex-center gap-2 text-xl font-bold text-pink-300 cursor-pointer" onclick="switchView('home-view')">
                 <img src="lekhaFongLogo.png" alt="logo" width="50">
-                <span class="animate-pulse" style="text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.745);">LekhaFong</span>
+                <span class="animate-pulse" style="text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.745); font-size: larger;">LekhaFong</span>
             </div>
             
             <div class="hidden md:flex gap-6 items-center text-sm lg:text-base mt-4 md:mt-0">
@@ -806,6 +806,37 @@
             } else {
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
+            }
+        }
+        // ฟังก์ชันสลับระหว่าง Log In และ Sign Up ภายใน Modal
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('form-login');
+            const signupForm = document.getElementById('form-signup');
+            const tabLogin = document.getElementById('tab-login');
+            const tabSignup = document.getElementById('tab-signup');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                loginForm.classList.add('block');
+                signupForm.classList.add('hidden');
+                signupForm.classList.remove('block');
+                
+                tabLogin.classList.add('bg-gray-500', 'font-bold');
+                tabLogin.classList.remove('text-gray-200', 'hover:bg-gray-400');
+                
+                tabSignup.classList.remove('bg-gray-500', 'font-bold');
+                tabSignup.classList.add('text-gray-200', 'hover:bg-gray-400');
+            } else {
+                signupForm.classList.remove('hidden');
+                signupForm.classList.add('block');
+                loginForm.classList.add('hidden');
+                loginForm.classList.remove('block');
+                
+                tabSignup.classList.add('bg-gray-500', 'font-bold');
+                tabSignup.classList.remove('text-gray-200', 'hover:bg-gray-400');
+                
+                tabLogin.classList.remove('bg-gray-500', 'font-bold');
+                tabLogin.classList.add('text-gray-200', 'hover:bg-gray-400');
             }
         }
 
