@@ -56,10 +56,10 @@
                     <h1 class="mt-2 font-serif text-4xl italic leading-tight">Welcome back.</h1>
                 </header>
 
-                <form class="flex flex-col gap-5" onsubmit="handleLoginSubmit(event)">
+                <form id="login-form" class="flex flex-col gap-5" onsubmit="handleLoginSubmit(event)" autocomplete="off">
                     <div class="flex flex-col gap-1.5">
                         <label for="login-email" class="text-sm font-medium">Email</label>
-                        <input id="login-email" name="email" type="text" autocomplete="email"
+                        <input id="login-email" name="email" type="text" autocomplete="off"
                             placeholder="you@example.com (หรือพิมพ์ admin)"
                             class="w-full rounded-md border border-[#D9B5BA] bg-white/70 px-3 py-2.5 text-[15px] text-[#4A4A4A] placeholder:text-[#B39A9E] transition-colors hover:border-[#C99EA5] focus:border-[#4A4A4A] focus:bg-white focus:outline-none">
                     </div>
@@ -71,7 +71,7 @@
                                 onclick="const p=document.getElementById('login-password');const s=p.type==='password';p.type=s?'text':'password';this.textContent=s?'Hide':'Show';"
                                 class="text-xs text-[#7A6E70] underline-offset-4 hover:text-[#4A4A4A] hover:underline">Show</button>
                         </div>
-                        <input id="login-password" name="password" type="password" autocomplete="current-password"
+                        <input id="login-password" name="password" type="password" autocomplete="new-password"
                             class="w-full rounded-md border border-[#D9B5BA] bg-white/70 px-3 py-2.5 text-[15px] text-[#4A4A4A] transition-colors hover:border-[#C99EA5] focus:border-[#4A4A4A] focus:bg-white focus:outline-none">
                     </div>
 

@@ -1,8 +1,8 @@
 const $ = (s, r = document) => r.querySelector(s);
 
         /* ============================================================================
-           1. SVG ICONS & UI DATA (ข้อมูลเริ่มต้นสำหรับแสดงผล UI)
-           ============================================================================ */
+        1. SVG ICONS & UI DATA (ข้อมูลเริ่มต้นสำหรับแสดงผล UI)
+        ============================================================================ */
         const I = {
             search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
             sliders: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
@@ -115,180 +115,636 @@ const $ = (s, r = document) => r.querySelector(s);
             type: -1,
             isAdmin: false,
             currentUser: null,
-            filters: { keyword: '', pickupDate: '', returnDate: '', maxPrice: 3000, brand: 'ทุกยี่ห้อ' }
+            filters: { keyword: '', pickupDate: '', returnDate: '', maxPrice: 50000, brand: 'ทุกยี่ห้อ' }
         };
 
         /* ============================================================================
-           2. MYSQL & BACKEND API PLACEHOLDERS (เว้นจุดเชื่อมต่อ Database MySQL)
-           หมายเหตุ: เปลี่ยน API_BASE_URL ให้ตรงกับ Backend Server (Node.js / PHP / Python)
-           ============================================================================ */
-        const API_BASE_URL = '/api';
+        2. MYSQL & BACKEND API PLACEHOLDERS (เว้นจุดเชื่อมต่อ Database MySQL)
+        หมายเหตุ: เปลี่ยน API_BASE_URL ให้ตรงกับ Backend Server (Node.js / PHP / Python)
+        ============================================================================ */
+        const API_BASE_URL = 'http://localhost:3000/api';
 
-        /**
-         * [API 1] ดึงรายการอุปกรณ์ทั้งหมด / ค้นหา / กรองขั้นสูงจาก MySQL
-         * Endpoint: GET /api/products?keyword=...&type=...&maxPrice=...&brand=...&start=...&end=...
-         * MySQL Table: `products` LEFT JOIN `bookings` (เช็กคิวว่างตามวันที่รับ-คืน)
-         */
-        async function apiFetchProducts(filters = {}) {
+        let adminUsersCache = [];
+        let adminProductsCache = [];
+        let adminListCache = [];
+
+        const BACKEND_ORIGIN = 'http://localhost:3000';
+        let equipmentTypesCache = [];
+        let pendingRentalDraft = null;
+
+        const BRAND_LOGOS = {
+            'Canon':      'https://upload.wikimedia.org/wikipedia/commons/3/3f/Canon_logo_vector.png',
+            'Sony':       'https://upload.wikimedia.org/wikipedia/commons/c/ca/Sony_logo.svg',
+            'Nikon':      'https://upload.wikimedia.org/wikipedia/commons/4/4d/Nikon_logo3.jpg',
+            'Fujifilm':   'https://upload.wikimedia.org/wikipedia/commons/7/74/Fujifilm_old_logo.png',
+            'Panasonic':  'https://upload.wikimedia.org/wikipedia/commons/9/95/Panasonic_logo.svg',
+            'Blackmagic': 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Blackmagic_Design_logo.png',
+            'DJI':        'https://upload.wikimedia.org/wikipedia/commons/d/d2/DJI_logo.png',
+            'Sigma':      'https://www.sigma-global.com/common/images/symbol.svg',
+            'Tamron':     'https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b2/Tamron_Logo.svg/1920px-Tamron_Logo.svg.png?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20140815162822',
+            'Leica':      'https://upload.wikimedia.org/wikipedia/commons/e/ec/Leica_Camera_logo.svg',
+            'Rode':       'https://upload.wikimedia.org/wikipedia/commons/0/0e/R%C3%B8de_Microphones_logo.png?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail_unscaled&_=20170325212451',
+            'Godox':      'https://cdn.simpleicons.org/godox',
+            'SmallRig':   'https://logowik.com/content/uploads/images/smallrig-new9704.logowik.com.webp',
+            'Zhiyun':     'https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/Zhiyun-tech_logo.svg/1280px-Zhiyun-tech_logo.svg.png?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20191111193915',
+            'Aputure':    'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/Aperture_Science.svg/1280px-Aperture_Science.svg.png?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20230906174513'
+        };
+
+        function renderBrandLogo(brandName, fallbackIcon = 'camera') {
+            const matchedKey = Object.keys(BRAND_LOGOS).find(
+                k => k.toLowerCase() === String(brandName || '').trim().toLowerCase()
+            );
+            const logoSrc = matchedKey ? BRAND_LOGOS[matchedKey] : '';
+
+            if (logoSrc) {
+                return `<img src="${logoSrc}" alt="${brandName}"
+                    style="width:100%; height:100%; object-fit:contain; background:#ffffff; padding:0.5px; box-sizing:border-box; display:block;"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';">
+                    <span style="display:none; align-items:center; justify-content:center;">${ic(fallbackIcon)}</span>`;
+            }
+            return ic(fallbackIcon);
+        }
+
+        (function injectBrandSliderStyle() {
+            const old = document.getElementById('brand-slider-style');
+            if (old) old.remove();
+            const style = document.createElement('style');
+            style.id = 'brand-slider-style';
+            style.textContent = `
+                .brands.brand-carousel {
+                    display: flex !important;
+                    flex-wrap: nowrap !important;
+                    grid-template-columns: none !important;
+                    gap: 24px !important;
+                    overflow-x: auto !important;
+                    scroll-behavior: smooth;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    padding-bottom: 4px;
+                }
+                .brands.brand-carousel::-webkit-scrollbar { display: none; }
+                .brands.brand-carousel .brand {
+                    flex: 0 0 calc((100% - 72px) / 4) !important;
+                    min-width: 240px !important;
+                }
+                .brand-nav-group { display: inline-flex; align-items: center; gap: 8px; }
+                .brand-nav-btn {
+                    width: 38px; height: 38px; border-radius: 9999px;
+                    border: 1px solid #D5B2B6; background: #FFF9F9; color: #7D3B42;
+                    display: inline-flex; align-items: center; justify-content: center;
+                    cursor: pointer; transition: all 0.2s ease;
+                }
+                .brand-nav-btn:hover { background: #7D3B42; color: #ffffff; border-color: #7D3B42; }
+            `;
+            document.head.appendChild(style);
+        })();
+
+        window.scrollBrands = (trackId, dir) => {
+            const id = trackId.startsWith('track-') ? trackId : `track-${trackId}`;
+            const track = document.getElementById(id);
+            if (track) {
+                track.scrollBy({ left: dir * Math.max(260, track.clientWidth * 0.75), behavior: 'smooth' });
+            }
+        };
+
+        function scrollBrands(trackId, direction) {
+            const track = document.getElementById(trackId);
+            if (!track) return;
+            const step = Math.max(280, track.clientWidth * 0.55);
+            track.scrollBy({ left: direction * step, behavior: 'smooth' });
+        }
+        function getBrandCount(brandName, targetCategory) {
+            const list = (typeof P !== 'undefined' && Array.isArray(P)) ? P : [];
+            const targetBrand = String(brandName || '').trim().toLowerCase();
+
+            return list.filter(item => {
+                const itemBrand = String(item.brand || '').trim().toLowerCase();
+                if (itemBrand !== targetBrand) return false;
+
+                if (typeof typeOf === 'function') {
+                    const t = typeOf(item);
+                    if (targetCategory === 'camera') return t === 0;
+                    if (targetCategory === 'lens') return t === 1;
+                    if (targetCategory === 'accessories') return t === 2;
+                }
+
+                const cat = String(item.c || '').trim();
+                if (targetCategory === 'camera') return cat === 'กล้อง';
+                if (targetCategory === 'lens') return cat === 'เลนส์';
+                if (targetCategory === 'accessories') return cat === 'อุปกรณ์เสริม';
+                return false;
+            }).length;
+        }
+
+        function renderStatusPill(p) {
+            const rawStatus = (p?.status ?? p?.equipment_status ?? p?.b ?? '').toString().trim();
+            if (!rawStatus) return '';
+
+            const lower = rawStatus.toLowerCase();
+            let bgStyle = '';
+            if (lower === 'available') {
+                bgStyle = 'background:#2E6F56; color:#ffffff;'; // สีเขียว (พร้อมเช่า)
+            } else if (lower === 'in use') {
+                bgStyle = 'background:#7D3B42; color:#ffffff;'; // สีแดงเบอร์กันดี (กำลังใช้งาน)
+            } else if (lower === 'maintenance') {
+                bgStyle = 'background:#A6633C; color:#ffffff;'; // สีส้มอิฐ (ซ่อมบำรุง)
+            }
+
+            return `<span class="badge" style="${bgStyle}">${rawStatus}</span>`;
+        }
+
+        // แปลงข้อมูล detail_images จาก MySQL (รองรับทั้ง JSON String และ Array)
+        function parseDetailImages(raw) {
+            if (Array.isArray(raw)) return raw.filter(Boolean);
+            if (typeof raw === 'string' && raw.trim()) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+                } catch {
+                    return [];
+                }
+            }
+            return [];
+        }
+
+        // แปลง Path รูปภาพให้เรียกจาก Backend Storage ได้ถูกต้อง
+        function resolveImageUrl(imgPath) {
+            if (!imgPath) return '';
+            if (imgPath.startsWith('http') || imgPath.startsWith('blob:') || imgPath.startsWith('data:')) {
+                return imgPath;
+            }
+            return `${BACKEND_ORIGIN}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
+        }
+
+        function mapEquipmentToProduct(row) {
+            const typeLower = (row.type || '').toLowerCase();
+            let catTh = 'อุปกรณ์เสริม';
+            let icon = 'bulb';
+            if (typeLower.includes('camera') || typeLower.includes('กล้อง')) {
+                catTh = 'กล้อง';
+                icon = typeLower.includes('cinema') ? 'video' : 'camera';
+            } else if (typeLower.includes('lens') || typeLower.includes('เลนส์')) {
+                catTh = 'เลนส์';
+                icon = 'lens';
+            } else if (typeLower.includes('mic') || typeLower.includes('audio') || typeLower.includes('ไมค์') || typeLower.includes('เสียง')) {
+                catTh = 'ไมค์ & เสียง';
+                icon = 'mic';
+            } else if (typeLower.includes('light') || typeLower.includes('ไฟ')) {
+                catTh = 'ไฟสตูดิโอ';
+                icon = 'bulb';
+            } else if (typeLower.includes('comp') || typeLower.includes('laptop') || typeLower.includes('คอม')) {
+                catTh = 'คอมพิวเตอร์';
+                icon = 'laptop';
+            } else if (typeLower.includes('speak') || typeLower.includes('ลำโพง')) {
+                catTh = 'ลำโพง';
+                icon = 'speaker';
+            }
+
+            const stockCount = row.stock !== undefined && row.stock !== null
+                ? Number(row.stock)
+                : (row.status === 'Available' ? 1 : 0);
+
+            return {
+                id: String(row.equipment_id),
+                n: row.name,
+                c: catTh,
+                brand: row.brand || 'Other',
+                i: icon,
+                p: Number(row.daily_rate) || 0,
+                b: (row.status || '').trim(),
+                s: row.description || `${row.brand} · ${row.model_series || row.type}`,
+                stock: stockCount,
+                equipment_id: row.equipment_id,
+                admin_id: row.admin_id,
+                name: row.name,
+                type: row.type,
+                serial_number: row.serial_number,
+                description: row.description || '',
+                model_series: row.model_series || '',
+                status: row.status,
+                daily_rate: Number(row.daily_rate) || 0,
+                main_image: row.main_image || '',
+                detail_images: parseDetailImages(row.detail_images)
+            };
+        }
+
+        async function apiFetchEquipmentTypes() {
             try {
-                // TODO: เปิดใช้งานเมื่อเชื่อมต่อ Backend API จริง
-                // const query = new URLSearchParams(filters).toString();
-                // const res = await fetch(`${API_BASE_URL}/products?${query}`);
-                // const data = await res.json();
-                // P = data.products;
-                // return data.products;
-                console.log('[MySQL API Placeholder] apiFetchProducts:', filters);
+                const res = await fetch(`${API_BASE_URL}/equipment-types`);
+                if (!res.ok) throw new Error('Failed to load types');
+                equipmentTypesCache = await res.json();
+            } catch {
+                equipmentTypesCache = ['Camera', 'Cinema Camera', 'Lens', 'Microphone', 'Audio', 'Lighting', 'Computer', 'Speaker', 'Accessory'];
+            }
+            return equipmentTypesCache;
+        }
+
+        async function apiUploadImageFile(file) {
+            const formData = new FormData();
+            formData.append('image', file);
+            const res = await fetch(`${API_BASE_URL}/upload`, {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'อัปโหลดรูปภาพไม่สำเร็จ');
+            }
+            return data.url;
+        }
+
+        async function apiSubmitRental(payload) {
+            const res = await fetch(`${API_BASE_URL}/rentals`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'ไม่สามารถทำรายการเช่าได้');
+            }
+            return data.rental;
+        }
+
+        // ---------------- ระบบ Custom Toast Notification ----------------
+        function showToast(message, type = 'success') {
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            const icons = {
+                success: 'fa-circle-check',
+                error: 'fa-circle-xmark',
+                warning: 'fa-triangle-exclamation'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icons[type] || icons.success}"></i>
+                <span class="toast-msg">${message}</span>
+                <button type="button" class="toast-close" aria-label="ปิด">&times;</button>
+            `;
+
+            toast.querySelector('.toast-close').onclick = () => toast.remove();
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                if (toast.parentElement) toast.remove();
+            }, 4000);
+        }
+
+        // ---------------- ระบบ Custom Confirmation Modal ----------------
+        function showConfirmModal(title, message, onConfirm) {
+            const existing = document.getElementById('custom-confirm-modal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'custom-confirm-modal';
+            modal.className = 'fixed inset-0 bg-black/50 z-[9998] flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="bg-[#FFF5F5] border border-[#D9B5BA] w-full max-w-md rounded-2xl p-6 shadow-2xl text-[#4A4A4A]">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-full bg-[#F9E3EA] text-[#BF4B72] flex items-center justify-center">
+                            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                        </div>
+                        <h3 class="text-lg font-bold">${title}</h3>
+                    </div>
+                    <p class="text-sm text-[#6F6262] mb-6 leading-relaxed">${message}</p>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" id="confirm-cancel-btn" class="px-5 py-2 rounded-full border border-[#D9B5BA] bg-white hover:bg-[#F2D4CE]/50 text-sm font-medium transition">
+                            Cancel
+                        </button>
+                        <button type="button" id="confirm-ok-btn" class="px-5 py-2 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm font-bold shadow transition">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.querySelector('#confirm-cancel-btn').onclick = () => modal.remove();
+            modal.querySelector('#confirm-ok-btn').onclick = async () => {
+                modal.remove();
+                await onConfirm();
+            };
+        }
+
+        // ---------------- ระบบ Authentication & Guard ----------------
+        function syncAuthFromStorage() {
+            const saved = localStorage.getItem('lekhafong_auth');
+            if (saved) {
+                try {
+                    const user = JSON.parse(saved);
+                    state.currentUser = user.username;
+                    state.userProfile = user;
+                    state.isAdmin = user.role === 'Admin';
+                } catch {
+                    localStorage.removeItem('lekhafong_auth');
+                    state.currentUser = null;
+                    state.userProfile = null;
+                    state.isAdmin = false;
+                }
+            } else {
+                state.currentUser = null;
+                state.userProfile = null;
+                state.isAdmin = false;
+            }
+        }
+
+        function enforceAdminGuard() {
+            syncAuthFromStorage();
+            if (state.p === 'admin' && !state.isAdmin) {
+                state.p = 'home';
+                history.replaceState({ page: 'home', type: -1, item: 0, depth: 0 }, '', '?page=home');
+                showToast('กรุณาเข้าสู่ระบบด้วยบัญชี Admin ก่อนเข้าใช้งาน', 'warning');
+            }
+        }
+
+        async function apiLoginUser(email, password) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง', 'error');
+                    return null;
+                }
+                localStorage.setItem('lekhafong_auth', JSON.stringify(data.user));
+                syncAuthFromStorage();
+                showToast(`เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ ${data.user.username}`, 'success');
+                return data.user;
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบ Backend Server', 'error');
+                return null;
+            }
+        }
+
+        async function apiRegisterUser(userData) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(userData)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'สมัครสมาชิกไม่สำเร็จ', 'error');
+                    return;
+                }
+                showToast('สมัครสมาชิกสำเร็จ สามารถเข้าสู่ระบบได้ทันที', 'success');
+                switchAuthTab('login');
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            }
+        }
+
+        // ---------------- API จัดการสินค้า / อุปกรณ์ (EQUIPMENT) ----------------
+        async function apiFetchProducts() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/products`);
+                if (!res.ok) throw new Error('Failed to load products');
+                const rows = await res.json();
+                adminProductsCache = rows;
+                P = rows.map(mapEquipmentToProduct);
                 return P;
             } catch (err) {
                 console.error('Error fetching products:', err);
+                showToast('ไม่สามารถโหลดข้อมูลอุปกรณ์จากฐานข้อมูลได้', 'error');
                 return P;
             }
         }
 
-        /**
-         * [API 2] ดึงรายละเอียดอุปกรณ์และตารางคิวว่างรายชิ้น
-         * Endpoint: GET /api/products/:productId
-         * MySQL Table: `products`, `product_specs`, `bookings`
-         */
         async function apiFetchProductDetail(productId) {
-            try {
-                // TODO: เปิดใช้งานเมื่อเชื่อมต่อ Backend API จริง
-                // const res = await fetch(`${API_BASE_URL}/products/${productId}`);
-                // return await res.json();
-                console.log('[MySQL API Placeholder] apiFetchProductDetail:', productId);
-            } catch (err) {
-                console.error('Error fetching product detail:', err);
-            }
+            return P.find(x => x.id === String(productId));
         }
 
-        /**
-         * [API 3] บันทึกคำสั่งจองเช่าอุปกรณ์ลงฐานข้อมูล MySQL
-         * Endpoint: POST /api/bookings
-         * Payload: { user_id, product_id, pickup_method, pickup_date, return_date, total_price, deposit_amount }
-         * MySQL Table: `bookings`
-         */
         async function apiCreateBooking(bookingPayload) {
-            try {
-                // TODO: ส่งข้อมูลการจองไปบันทึกใน MySQL
-                // const res = await fetch(`${API_BASE_URL}/bookings`, {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify(bookingPayload)
-                // });
-                // return await res.json();
-                console.log('[MySQL API Placeholder] apiCreateBooking:', bookingPayload);
-                alert(`บันทึกคำขอเช่า "${bookingPayload.productName}" เรียบร้อยแล้ว!
-(พร้อมเชื่อมต่อ API: POST /api/bookings ลง MySQL)`);
-            } catch (err) {
-                console.error('Error creating booking:', err);
+            if (!state.currentUser) {
+                showToast('กรุณาเข้าสู่ระบบก่อนทำการจองอุปกรณ์', 'warning');
+                toggleModal('login-modal');
+                return;
             }
+            showToast(`ส่งคำขอจอง "${bookingPayload.productName}" เรียบร้อยแล้ว`, 'success');
         }
 
-        /**
-         * [API 4] บันทึก / ยกเลิก รายการโปรด (Favorite)
-         * Endpoint: POST /api/favorites/toggle
-         * Payload: { user_id, product_id }
-         * MySQL Table: `user_favorites`
-         */
         async function apiToggleFavorite(productId) {
-            try {
-                // TODO: บันทึกรายการโปรดลง MySQL
-                // await fetch(`${API_BASE_URL}/favorites/toggle`, {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ user_id: state.currentUser?.id, product_id: productId })
-                // });
-                console.log('[MySQL API Placeholder] apiToggleFavorite:', productId);
-            } catch (err) {
-                console.error('Error toggling favorite:', err);
-            }
+            showToast('อัปเดตรายการโปรดแล้ว', 'success');
         }
 
-        /**
-         * [API 5] ตรวจสอบการเข้าสู่ระบบ (Authentication) จากตาราง users ใน MySQL
-         * Endpoint: POST /api/auth/login
-         * Payload: { email, password }
-         * Response: { success: true, user: { id, email, first_name, role: 'admin' | 'customer' }, token }
-         */
-        async function apiLoginUser(email, password) {
-            try {
-                // TODO: เชื่อมต่อ API Login จริงกับ MySQL
-                // const res = await fetch(`${API_BASE_URL}/auth/login`, {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ email, password })
-                // });
-                // return await res.json();
-                console.log('[MySQL API Placeholder] apiLoginUser:', { email });
-                return null;
-            } catch (err) {
-                console.error('Login API error:', err);
-                return null;
-            }
-        }
-
-        /**
-         * [API 6] สมัครสมาชิกใหม่ (Register) บันทึกลงตาราง users ใน MySQL
-         * Endpoint: POST /api/auth/register
-         * Payload: { first_name, last_name, email, phone, address, password }
-         * MySQL Table: `users`
-         */
-        async function apiRegisterUser(userData) {
-            try {
-                // TODO: ส่งข้อมูลสมัครสมาชิกไปบันทึกใน MySQL
-                // const res = await fetch(`${API_BASE_URL}/auth/register`, {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify(userData)
-                // });
-                // return await res.json();
-                console.log('[MySQL API Placeholder] apiRegisterUser:', userData);
-                alert('สมัครสมาชิกสำเร็จ! (พร้อมเชื่อมต่อ API: POST /api/auth/register ลง MySQL)');
-                switchAuthTab('login');
-            } catch (err) {
-                console.error('Register API error:', err);
-            }
-        }
-
-        /**
-         * [API 7 - 11] ระบบจัดการหลังบ้านสำหรับ Admin (CRUD Users & Products ใน MySQL)
-         */
-        async function apiAdminFetchUsers() {
-            // GET /api/admin/users -> SELECT id, username, email, phone, address FROM users;
-            console.log('[MySQL API Placeholder] GET /api/admin/users');
-        }
-        async function apiAdminUpdateUser(username, payload) {
-            // PUT /api/admin/users/:username -> UPDATE users SET ... WHERE username = ?;
-            console.log('[MySQL API Placeholder] PUT /api/admin/users/' + username, payload);
-            alert(`อัปเดตข้อมูลผู้ใช้ ${username} สำเร็จ (พร้อมเชื่อม MySQL)`);
-        }
-        async function apiAdminDeleteUser(username) {
-            // DELETE /api/admin/users/:username -> DELETE FROM users WHERE username = ?;
-            console.log('[MySQL API Placeholder] DELETE /api/admin/users/' + username);
-            alert(`ลบผู้ใช้ ${username} ออกจากระบบแล้ว (พร้อมเชื่อม MySQL)`);
-            backToUserList();
-        }
         async function apiAdminAddProduct(productData) {
-            // POST /api/admin/products -> INSERT INTO products (product_id, name, rent_price, stock) VALUES (...);
-            console.log('[MySQL API Placeholder] POST /api/admin/products', productData);
-            alert(`เพิ่มสินค้าใหม่ "${productData.name}" ลงฐานข้อมูลสำเร็จ!`);
-            backToProductList();
+            try {
+                const res = await fetch(`${API_BASE_URL}/products`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...productData,
+                        admin_id: state.userProfile?.admin_id || 1
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'ไม่สามารถเพิ่มอุปกรณ์ได้', 'error');
+                    return;
+                }
+                showToast(data.message || 'เพิ่มอุปกรณ์ใหม่สำเร็จ', 'success');
+                await apiFetchProducts();
+                renderAdminProductsTable();
+                backToProductList();
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            }
         }
-        async function apiAdminUpdateProduct(productId, productData) {
-            // PUT /api/admin/products/:id -> UPDATE products SET name=?, rent_price=?, stock=? WHERE product_id=?;
-            console.log('[MySQL API Placeholder] PUT /api/admin/products/' + productId, productData);
-            alert(`อัปเดตข้อมูลสินค้า ${productId} สำเร็จ!`);
+
+        async function apiAdminUpdateProduct(equipmentId, productData) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/products/${equipmentId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(productData)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'ไม่สามารถอัปเดตข้อมูลได้', 'error');
+                    return;
+                }
+                showToast(data.message || 'อัปเดตข้อมูลอุปกรณ์สำเร็จ', 'success');
+                await apiFetchProducts();
+                renderAdminProductsTable();
+                backToProductList();
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            }
         }
-        async function apiAdminDeleteProduct(productId) {
-            // DELETE /api/admin/products/:id -> DELETE FROM products WHERE product_id=?;
-            console.log('[MySQL API Placeholder] DELETE /api/admin/products/' + productId);
-            alert(`ลบสินค้า ${productId} ออกจากระบบแล้ว!`);
-            backToProductList();
+
+        function apiAdminDeleteProduct(equipmentId, productName) {
+            showConfirmModal(
+                'ยืนยันการลบอุปกรณ์',
+                `คุณต้องการลบอุปกรณ์ "${productName || equipmentId}" ออกจากฐานข้อมูลหรือไม่?`,
+                async () => {
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/products/${equipmentId}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) {
+                            showToast(data.message || 'ลบอุปกรณ์ไม่สำเร็จ', 'error');
+                            return;
+                        }
+                        showToast(data.message || 'ลบอุปกรณ์เรียบร้อยแล้ว', 'success');
+                        await apiFetchProducts();
+                        renderAdminProductsTable();
+                        backToProductList();
+                    } catch (err) {
+                        showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                    }
+                }
+            );
+        }
+
+        // ---------------- API จัดการผู้ใช้งาน (CUSTOMER) ----------------
+        async function apiAdminFetchUsers() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/users`);
+                if (!res.ok) throw new Error('Failed to fetch users');
+                adminUsersCache = await res.json();
+                renderAdminUsersTable();
+            } catch (err) {
+                showToast('ไม่สามารถดึงข้อมูลผู้ใช้งานจากฐานข้อมูลได้', 'error');
+            }
+        }
+
+        async function apiAdminUpdateUser(accountId, payload) {
+            try {
+                const res = await fetch(`${API_BASE_URL}/users/${accountId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'ไม่สามารถอัปเดตข้อมูลได้ กรุณาลองใหม่อีกครั้ง', 'error');
+                    return;
+                }
+                showToast(data.message || 'อัปเดตข้อมูลผู้ใช้สำเร็จ', 'success');
+                await apiAdminFetchUsers();
+                backToUserList();
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            }
+        }
+
+        function apiAdminDeleteUser(accountId, username) {
+            showConfirmModal(
+                'ยืนยันการลบผู้ใช้งาน',
+                `คุณต้องการลบผู้ใช้ "${username}" ออกจากระบบหรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`,
+                async () => {
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/users/${accountId}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) {
+                            showToast(data.message || 'ลบผู้ใช้งานไม่สำเร็จ', 'error');
+                            return;
+                        }
+                        showToast(data.message || 'ลบผู้ใช้งานเรียบร้อยแล้ว', 'success');
+                        await apiAdminFetchUsers();
+                        backToUserList();
+                    } catch (err) {
+                        showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                    }
+                }
+            );
+        }
+
+        // ---------------- API จัดการผู้ดูแลระบบ (ADMIN) ----------------
+        async function apiAdminFetchAdmins() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/admins`);
+                if (!res.ok) throw new Error('Failed to fetch admins');
+                adminListCache = await res.json();
+                renderAdminListTable();
+            } catch (err) {
+                showToast('ไม่สามารถดึงข้อมูล Admin ได้', 'error');
+            }
+        }
+
+        async function apiAdminAddAdmin(payload) {
+            if (payload.password !== payload.confirmPassword) {
+                showToast('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน', 'warning');
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE_URL}/admins`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'ไม่สามารถเพิ่ม Admin ได้', 'error');
+                    return;
+                }
+                showToast(data.message || 'เพิ่มผู้ดูแลระบบสำเร็จ', 'success');
+                await apiAdminFetchAdmins();
+                backToAdminList();
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            }
+        }
+
+        async function apiAdminUpdateAdmin(accountId, payload) {
+            if (payload.password && payload.password !== payload.confirmPassword) {
+                showToast('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน', 'warning');
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE_URL}/admins/${accountId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showToast(data.message || 'ไม่สามารถอัปเดตข้อมูล Admin ได้', 'error');
+                    return;
+                }
+                showToast(data.message || 'อัปเดตข้อมูล Admin สำเร็จ', 'success');
+                await apiAdminFetchAdmins();
+                backToAdminList();
+            } catch (err) {
+                showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+            }
+        }
+
+        function apiAdminDeleteAdmin(accountId, username) {
+            showConfirmModal(
+                'ยืนยันการลบ Admin',
+                `คุณต้องการลบสิทธิ์ผู้ดูแลระบบของ "${username}" ใช่หรือไม่?`,
+                async () => {
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/admins/${accountId}`, { method: 'DELETE' });
+                        const data = await res.json();
+                        if (!res.ok || !data.success) {
+                            showToast(data.message || 'ไม่สามารถลบ Admin ได้', 'error');
+                            return;
+                        }
+                        showToast(data.message || 'ลบ Admin เรียบร้อยแล้ว', 'success');
+                        await apiAdminFetchAdmins();
+                    } catch (err) {
+                        showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                    }
+                }
+            );
         }
 
         /* ============================================================================
-           3. HISTORY STACK & NAVIGATION (ระบบเปลี่ยนหน้า รองรับ Back / Forward และตัด Stack เมื่อกลับ Home)
-           ============================================================================ */
+        3. HISTORY STACK & NAVIGATION (ระบบเปลี่ยนหน้า รองรับ Back / Forward และตัด Stack เมื่อกลับ Home)
+        ============================================================================ */
         let currentDepth = 0;
         let resetForwardStack = false;
 
@@ -314,10 +770,13 @@ const $ = (s, r = document) => r.querySelector(s);
 
             if (addHistory && page !== 'home') {
                 currentDepth++;
+                const nextQuery = (state.p === 'detail' && state.item)
+                    ? `?page=detail&id=${encodeURIComponent(state.item)}`
+                    : `?page=${state.p}`;
                 history.pushState(
                     { page: state.p, type: state.type, item: state.item, depth: currentDepth },
                     '',
-                    `?page=${state.p}`
+                    nextQuery
                 );
             }
 
@@ -348,18 +807,21 @@ const $ = (s, r = document) => r.querySelector(s);
         });
 
         // ตั้งค่าหน้าเริ่มต้นเวลาโหลดเว็บหรือกด Refresh
-        window.addEventListener('DOMContentLoaded', () => {
-            const params = new URLSearchParams(window.location.search);
-            const initialPage = params.get('page') || 'home';
-            currentDepth = 0;
-            history.replaceState({ page: initialPage, type: state.type, item: state.item, depth: 0 }, '', `?page=${initialPage}`);
-            state.p = initialPage;
-            render();
+        window.addEventListener('DOMContentLoaded', async () => {
+        syncAuthFromStorage();
+        await apiFetchProducts();
+        const params = new URLSearchParams(window.location.search);
+        const initialPage = params.get('page') || 'home';
+        currentDepth = 0;
+        state.p = initialPage;
+        enforceAdminGuard();
+        history.replaceState({ page: state.p, type: state.type, item: state.item, depth: 0 }, '', `?page=${state.p}`);
+        render();
         });
 
         /* ============================================================================
-           4. UI COMPONENTS (ส่วนประกอบแต่ละโซนของหน้าเว็บพร้อม Comment)
-           ============================================================================ */
+        4. UI COMPONENTS (ส่วนประกอบแต่ละโซนของหน้าเว็บพร้อม Comment)
+        ============================================================================ */
         const eyebrow = t => `<span class="eyebrow">${t}</span>`;
         const goAttrs = (k, t) => `data-go="${k}"${t === undefined ? '' : ` data-type="${t}"`}`;
 
@@ -373,10 +835,11 @@ const $ = (s, r = document) => r.querySelector(s);
 
         /* ---------- [COMPONENT 2] NAVBAR (แถบเมนูด้านบน) ---------- */
         function nav() {
+            const detailItem = P.find(x => String(x.id) === String(state.item)) || P[0];
             const active = state.p === 'home' ? 0
                 : state.p === 'terms' ? 4
                 : state.p === 'team' ? 5
-                : state.p === 'detail' ? 1 + typeOf(P[state.item])
+                : state.p === 'detail' ? 1 + typeOf(detailItem)
                 : state.type >= 0 ? 1 + state.type : -1;
 
             const adminBtnHtml = state.isAdmin
@@ -449,6 +912,19 @@ const $ = (s, r = document) => r.querySelector(s);
             </div>`;
         }
 
+        window.submitSearchBar = function(e) {
+            if (e) e.preventDefault();
+            const kwEl = document.getElementById('sb-keyword');
+            const pickupEl = document.getElementById('sb-pickup');
+            const returnEl = document.getElementById('sb-return');
+
+            if (kwEl) state.filters.keyword = kwEl.value.trim();
+            if (pickupEl) state.filters.pickup = pickupEl.value;
+            if (returnEl) state.filters.return = returnEl.value;
+
+            goToPage('search', { type: state.type >= 0 ? state.type : -1 });
+        };
+
         function searchBlock() {
             return `
             <!-- แถบค้นหาหลัก (Search Bar) -->
@@ -474,10 +950,10 @@ const $ = (s, r = document) => r.querySelector(s);
 
         /* ---------- [COMPONENT 4] PRODUCT CARD (การ์ดแสดงสินค้าแต่ละชิ้น) ---------- */
         const card = (p, i, cls = '') => `
-            <article class="card ${cls}" data-detail="${P.indexOf(p)}">
+            <article class="card ${cls}" data-detail="${p.id}">
                 <div class="card-img t${i % 3}">
                     ${ic(p.i)}
-                    ${p.b ? `<span class="badge">${p.b}</span>` : ''}
+                    ${renderStatusPill(p)}
                     <button type="button" class="fav" aria-label="บันทึก ${p.n}" onclick="event.stopPropagation(); this.classList.toggle('on'); apiToggleFavorite('${p.id}')">${ic('heart')}</button>
                 </div>
                 <div class="card-body">
@@ -520,12 +996,91 @@ const $ = (s, r = document) => r.querySelector(s);
         const BRANDS = ['Canon', 'Sony', 'Nikon', 'Fujifilm'];
         const CAM_N = [18, 24, 12, 9], LENS_N = [21, 26, 14, 11];
         const ACCS = [['Flash', 'แฟลช', 'sparkles', 15], ['Microphone', 'ไมโครโฟน', 'mic', 22], ['Stand', 'ขาตั้ง', 'stand', 17]];
-        const brandTile = (name, n, icon) => `<a class="brand" href="#" data-go="search" data-type="${icon === 'camera' ? 0 : 1}"><div class="br-top"><span class="bi">${ic(icon)}</span><span class="pill">${n} รายการ</span></div><div class="br-name serif">${name}</div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
+        const brandTile = (name, n, icon, typeIdx = 0) => `<a class="brand" href="#" data-go="search" data-type="${typeIdx}" data-brand="${name}"><div class="br-top"><span class="bi" style="width:64px; height:64px; overflow:hidden; padding:0;">${renderBrandLogo(name, icon)}</span><span class="pill">${n} รายการ</span></div><div class="br-name serif">${name}</div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
         const accTile = ([n, th, icon, c], i) => `<a class="brand acc t${i}" href="#" data-go="search" data-type="2"><div class="br-top"><span class="bi">${ic(icon)}</span><span class="pill">${c} รายการ</span></div><div><div class="br-name serif">${n}</div><small>${th}</small></div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
-        const band = (cls, eye, title, type, inner) => `<section class="band ${cls}"><div class="wrap">${secHead(eye, title, 'ดูทั้งหมด', type)}${inner}</div></section>`;
+        const band = (cls, eye, title, type, inner) => {
+            const isBrandSlider = (cls === 'b1' || cls === 'b2' || cls === 'b3');
+            let headHtml = secHead(eye, title, 'ดูทั้งหมด', type);
+            if (isBrandSlider) {
+                const navBtns = `<div class="brand-nav-group">
+                    <button type="button" class="brand-nav-btn" data-scroll-track="track-${cls}" data-scroll-dir="-1" aria-label="เลื่อนซ้าย">
+                        <span style="display:inline-flex; transform:rotate(180deg);">${ic('arrow')}</span>
+                    </button>
+                    <button type="button" class="brand-nav-btn" data-scroll-track="track-${cls}" data-scroll-dir="1" aria-label="เลื่อนขวา">
+                        ${ic('arrow')}
+                    </button>
+                </div>`;
+                headHtml = headHtml.replace(/<a[\s\S]*?<\/a>/, navBtns);
+            }
+            return `<section class="band ${cls}"><div class="wrap">${headHtml}${inner}</div></section>`;
+        };
 
         function home() {
+            const baseBrands = ['Canon', 'Sony', 'Nikon', 'Fujifilm', 'Panasonic', 'Blackmagic', 'DJI', 'Sigma', 'Tamron', 'Leica', 'Rode', 'Godox', 'SmallRig', 'Zhiyun', 'Aputure'];
+            const allBrands = Array.from(new Set([
+                ...(typeof P !== 'undefined' && Array.isArray(P) ? P.map(x => x.brand).filter(Boolean) : []),
+                ...(typeof BRAND_LOGOS !== 'undefined' ? Object.keys(BRAND_LOGOS) : []),
+                ...baseBrands
+            ]));
+
+            const renderBrandRow = (catKey, iconName, typeIdx) => {
+                const sorted = [...allBrands].sort((a, b) => getBrandCount(b, catKey) - getBrandCount(a, catKey));
+                return sorted.map(b => brandTile(b, getBrandCount(b, catKey), iconName, typeIdx)).join('');
+            };
+
             return `
+            <style>
+                .brands.brand-carousel {
+                    display: flex !important;
+                    flex-wrap: nowrap !important;
+                    gap: 1.25rem;
+                    overflow-x: auto;
+                    scroll-behavior: smooth;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    padding: 0.25rem 0 0.75rem;
+                }
+                .brands.brand-carousel::-webkit-scrollbar {
+                    display: none;
+                }
+                .brands.brand-carousel > * {
+                    flex: 0 0 calc(25% - 0.94rem);
+                    min-width: 220px;
+                }
+                @media (max-width: 900px) {
+                    .brands.brand-carousel > * {
+                        flex: 0 0 calc(50% - 0.625rem);
+                    }
+                }
+                @media (max-width: 540px) {
+                    .brands.brand-carousel > * {
+                        flex: 0 0 80%;
+                    }
+                }
+                .brand-nav-group {
+                    display: inline-flex;
+                    gap: 0.5rem;
+                    align-items: center;
+                }
+                .brand-nav-btn {
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 9999px;
+                    border: 1px solid #D9B5BA;
+                    background: #FFFFFF;
+                    color: #4A4A4A;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: background 0.2s, border-color 0.2s;
+                }
+                .brand-nav-btn:hover {
+                    background: #F9E3EA;
+                    border-color: #BF4B72;
+                    color: #BF4B72;
+                }
+            </style>
             <main>
                 ${heroHome()}
                 <!-- ==================== SEARCH SECTION (ช่องค้นหาหลักบนหน้าแรก) ==================== -->
@@ -533,9 +1088,9 @@ const $ = (s, r = document) => r.querySelector(s);
                     <div class="searchwrap">${searchBlock()}${advPanel()}</div>
                 </div>
                 <!-- ==================== BRAND CATEGORIES (หมวดหมู่แบรนด์กล้อง เลนส์ และอุปกรณ์เสริม) ==================== -->
-                ${band('b1', 'Camera', 'Camera <em>Brands</em>', 0, `<div class="brands">${BRANDS.map((b, i) => brandTile(b, CAM_N[i], 'camera')).join('')}</div>`)}
-                ${band('b2', 'Lens', 'Lens <em>Brands</em>', 1, `<div class="brands">${BRANDS.map((b, i) => brandTile(b, LENS_N[i], 'lens')).join('')}</div>`)}
-                ${band('b3', 'Accessories', 'Add-ons &amp; <em>Accessories</em>', 2, `<div class="brands three">${ACCS.map(accTile).join('')}</div>`)}
+                ${band('b1', 'Camera', 'Camera <em>Brands</em>', 0, `<div id="track-b1" class="brands brand-carousel">${renderBrandRow('camera', 'camera', 0)}</div>`)}
+                ${band('b2', 'Lens', 'Lens <em>Brands</em>', 1, `<div id="track-b2" class="brands brand-carousel">${renderBrandRow('lens', 'lens', 1)}</div>`)}
+                ${band('b3', 'Accessories', 'Add-ons &amp; <em>Accessories</em>', 2, `<div id="track-b3" class="brands brand-carousel">${renderBrandRow('accessories', 'mic', 2)}</div>`)}
             </main>`;
         }
 
@@ -550,7 +1105,7 @@ const $ = (s, r = document) => r.querySelector(s);
                 const matchType = state.type < 0 || typeOf(p) === state.type;
                 const matchKw = !kw || p.n.toLowerCase().includes(kw) || p.c.toLowerCase().includes(kw) || p.s.toLowerCase().includes(kw);
                 const matchPrice = p.p <= state.filters.maxPrice;
-                const matchBrand = state.filters.brand === 'ทุกยี่ห้อ' || p.brand === state.filters.brand;
+                const matchBrand = state.filters.brand === 'ทุกยี่ห้อ' || String(p.brand || '').trim().toLowerCase() === String(state.filters.brand || '').trim().toLowerCase();
                 return matchType && matchKw && matchPrice && matchBrand;
             });
 
@@ -654,295 +1209,527 @@ const $ = (s, r = document) => r.querySelector(s);
 
         /* ---------- [COMPONENT 9] PRODUCT DETAIL VIEW (หน้ารายละเอียดอุปกรณ์และการจอง) ---------- */
         function detail() {
-            const i = state.item, p = P[i], d = DET[i], t = typeOf(p);
-            const thumbs = [0, 1, 2, 1].map((k, n) => {
-                const c = 't' + ((i + k) % 3);
-                return `<button type="button" class="thumb ${c} ${n === 0 ? 'on' : ''}" data-thumb="${c}" aria-label="รูปที่ ${n + 1}">${ic(p.i)}</button>`;
-            }).join('');
-            const slots = [['19–21 พ.ย.', 0], ['22–23 พ.ย.', 1], ['24–27 พ.ย.', 0], ['1–5 ธ.ค.', 0]]
-                .map(([l, off]) => `<span class="slot ${off ? 'off' : ''}">${l}</span>`).join('');
-            const related = P.filter((_, k) => k !== i);
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlId = urlParams.get('id');
+            const targetId = (state.item !== undefined && state.item !== null && state.item !== 0 && state.item !== '0')
+                ? state.item
+                : (urlId || state.item);
+
+            const p = P.find(x => String(x.id) === String(targetId)) || P[0];
+
+            if (!p) {
+                return `<main class="wrap py-16 text-center text-[#6F6262]">ไม่พบข้อมูลอุปกรณ์</main>`;
+            }
+
+            // อัปเดต URL ให้มี &id= เสมอ (กด F5 รีเฟรชแล้วไม่หลุดไปตัวแรก)
+            if (window.location.search.includes('page=detail') && urlParams.get('id') !== String(p.id)) {
+                const nextUrl = `${window.location.pathname}?page=detail&id=${encodeURIComponent(p.id)}`;
+                window.history.replaceState({}, '', nextUrl);
+            }
+
+            const galleryImages = [p.main_image, ...(p.detail_images || [])].filter(Boolean);
+            const hasImages = galleryImages.length > 0;
+            const isAvailable = p.status === 'Available' && Number(p.stock) > 0;
+            const todayStr = new Date().toISOString().split('T')[0];
 
             return `
-            <!-- ==================== PRODUCT DETAIL VIEW ==================== -->
-            <main class="wrap dt">
-                <nav class="crumbs" aria-label="เส้นทางหน้า">
-                    <a href="#" data-go="home">Home</a><span>/</span>
-                    <a href="#" ${goAttrs('search', t)}>${TYPES[t]}</a><span>/</span>
-                    <b>${p.n}</b>
-                </nav>
+            <style>
+                .pd-detail-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 2rem;
+                    align-items: start;
+                }
+                @media (min-width: 960px) {
+                    .pd-detail-grid {
+                        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                        gap: 2.5rem;
+                    }
+                }
+                .pd-detail-grid .pd-real-img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+            </style>
+            <main class="wrap py-8">
+                <div class="text-xs text-[#6F6262] mb-6 flex items-center gap-2 flex-wrap">
+                    <button type="button" onclick="goToPage('home')" class="hover:text-[#BF4B72]">Home</button>
+                    <span>/</span>
+                    <button type="button" onclick="goToPage('search')" class="hover:text-[#BF4B72]">${p.c}</button>
+                    <span>/</span>
+                    <span class="font-semibold text-[#4A4A4A]">${p.n}</span>
+                </div>
 
-                <section class="dgrid">
-                    <div class="dpic">
-                        <div class="dpic-main t${i % 3}" id="dmain">
-                            ${ic(p.i)}
-                            ${p.b ? `<span class="badge">${p.b}</span>` : ''}
-                            <button type="button" class="fav" aria-label="บันทึก ${p.n}" onclick="this.classList.toggle('on'); apiToggleFavorite('${p.id}')">${ic('heart')}</button>
+                <div class="pd-detail-grid">
+                    <!-- ฝั่งซ้าย: Main Image + Thumbnails เฉพาะรูปที่มีจริง -->
+                    <div class="space-y-4">
+                        <div class="relative aspect-square rounded-3xl bg-[#E8D5D5]/70 border border-[#EBD3D1] overflow-hidden flex items-center justify-center shadow-sm">
+                            ${hasImages
+                                ? `<img id="pd-main-preview" src="${resolveImageUrl(galleryImages[0])}" alt="${p.n}" class="pd-real-img">`
+                                : `<div class="w-32 h-32 text-[#6F6262]">${ic(p.i)}</div>`
+                            }
+                            <button type="button" onclick="apiToggleFavorite('${p.id}')" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#BF4B72] flex items-center justify-center shadow transition" aria-label="รายการโปรด">
+                                <i class="fa-regular fa-heart"></i>
+                            </button>
                         </div>
-                        <div class="thumbs" role="group" aria-label="รูปสินค้า">${thumbs}</div>
-                        <div class="dtypes">
-                            <div class="seg-t">${TYPES.map((x, k) => `<span class="${k === t ? 'on' : ''}">${x}</span>`).join('')}</div>
-                            <span class="src">${ic('shield')}แหล่งที่มา: คลังอุปกรณ์ LekhaFong Studio</span>
+
+                        ${hasImages ? `
+                        <div class="grid grid-cols-5 gap-3">
+                            ${galleryImages.map((imgUrl, idx) => `
+                                <button type="button" onclick="switchProductDetailImage('${resolveImageUrl(imgUrl)}', this)" class="pd-thumb-btn ${idx === 0 ? 'active' : ''}">
+                                    <img src="${resolveImageUrl(imgUrl)}" alt="${p.n} ${idx + 1}" class="w-full h-full object-cover">
+                                </button>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+
+                        <div class="flex items-center justify-between flex-wrap gap-2 pt-1 text-xs text-[#6F6262]">
+                            <div class="flex gap-2 flex-wrap">
+                                <span class="px-3 py-1 rounded-full bg-[#F9E3EA] text-[#BF4B72] font-semibold">${p.c}</span>
+                                <span class="px-3 py-1 rounded-full bg-white border border-[#EBD3D1]">${p.type || p.c}</span>
+                            </div>
+                            <span><i class="fa-solid fa-location-dot text-[#BF4B72] mr-1"></i> แหล่งที่มา: คลังอุปกรณ์ LekhaFong Studio</span>
                         </div>
                     </div>
 
-                    <div class="dinfo">
-                        ${eyebrow(p.c)}
-                        <h1 class="serif">${p.n}</h1>
-                        <p class="dline">${p.s}</p>
-                        <dl class="bsm">
-                            <div><dt>ยี่ห้อ</dt><dd>${d[0]}</dd></div>
-                            <div><dt>ซีรีส์</dt><dd>${d[1]}</dd></div>
-                            <div><dt>รุ่น</dt><dd>${d[2]}</dd></div>
-                        </dl>
-                        <div class="dprice">
-                            <span class="price"><b>${baht(p.p)}</b><small>/วัน</small></span>
-                            <span class="dep">มัดจำ 30% ของค่าเช่า ขั้นต่ำ ฿500</span>
-                        </div>
-                        <fieldset class="opts">
-                            <legend>วิธีรับ–คืนอุปกรณ์</legend>
-                            <label class="opt"><input type="radio" name="pk" value="store" checked><span class="oi">${ic('store')}</span><span><b>รับ–คืนที่ร้าน</b><small>ฟรี · ตรวจสภาพร่วมกันที่หน้าร้าน</small></span></label>
-                            <label class="opt"><input type="radio" name="pk" value="delivery"><span class="oi">${ic('truck')}</span><span><b>จัดส่งถึงที่</b><small>เริ่ม ฿150 · ทั่วกรุงเทพฯ</small></span></label>
-                        </fieldset>
-                        <div class="dates">
-                            <label class="df"><span>วันรับ</span><input id="detail-pickup" class="field" type="date"></label>
-                            <label class="df"><span>วันคืน</span><input id="detail-return" class="field" type="date"></label>
-                        </div>
-                        <div class="dcta">
-                            <button type="button" class="btn btn-accent btn-lg" onclick="handleRentNow()">เช่าเลย${ic('arrow')}</button>
-                            <button type="button" class="icon-btn lg" aria-label="บันทึกรายการโปรด" onclick="this.classList.toggle('on'); apiToggleFavorite('${p.id}')">${ic('heart')}</button>
-                        </div>
-                        <p class="dnote">${ic('check')}ยกเลิกหรือเลื่อนวันฟรีล่วงหน้า 48 ชม.</p>
-                    </div>
-                </section>
+                    <!-- ฝั่งขวา: ข้อมูลสินค้าและฟอร์มเลือกวันเช่า -->
+                    <div class="bg-white rounded-3xl border border-[#EBD3D1] p-6 md:p-8 shadow-sm">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-[#BF4B72]">${p.c}</span>
+                        <h1 class="font-serif italic text-3xl md:text-4xl text-[#4A4A4A] mt-1 mb-3 leading-tight">${p.n}</h1>
+                        <p class="text-sm text-[#6F6262] leading-relaxed mb-6">${p.description || p.s}</p>
 
-                <section class="dmore" aria-label="รายละเอียดสินค้า">
-                    <div class="dm-col">
-                        ${eyebrow('Status')}
-                        <h2 class="serif">สถานะ</h2>
-                        <span class="status"><i></i>ว่างพร้อมเช่า (${p.stock} ชิ้น)</span>
-                        <p class="muted">ช่วงที่ว่างเร็วที่สุด</p>
-                        <div class="slots">${slots}</div>
-                    </div>
-                    <div class="dm-col">
-                        ${eyebrow('Pickup / Return')}
-                        <h2 class="serif">รับ–คืนอุปกรณ์</h2>
-                        <ul class="plist">
-                            <li><span class="oi">${ic('store')}</span><div><b>รับที่ร้าน</b><small>ทุกวัน 09:00 – 19:00</small></div></li>
-                            <li><span class="oi">${ic('truck')}</span><div><b>จัดส่งถึงที่</b><small>ทั่วกรุงเทพฯ ตรงเวลาตามนัด</small></div></li>
-                            <li><span class="oi">${ic('clock')}</span><div><b>คืนตรงเวลา</b><small>เกิน 2 ชม. คิดเพิ่ม 50% ของค่าเช่ารายวัน</small></div></li>
-                        </ul>
-                    </div>
-                    <div class="dm-col wide">
-                        ${eyebrow('Specification')}
-                        <h2 class="serif">สเปก</h2>
-                        <dl class="spec">${d[3].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
-                    </div>
-                </section>
-
-                <section class="sec">
-                    <div class="sec-head">
-                        <div>${eyebrow('You may also like')}<h2 class="serif">Pairs <em>well with</em></h2></div>
-                        <div class="car-nav" data-car-nav hidden>
-                            <button type="button" class="car-btn" data-car="-1" aria-label="ก่อนหน้า">${ic('arrowL')}</button>
-                            <button type="button" class="car-btn" data-car="1" aria-label="ถัดไป">${ic('arrow')}</button>
+                        <div class="grid grid-cols-3 gap-4 py-4 border-y border-[#EBD3D1] mb-6 text-sm">
+                            <div>
+                                <div class="text-[11px] text-[#6F6262]">ยี่ห้อ</div>
+                                <div class="font-bold text-[#4A4A4A]">${p.brand || '-'}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] text-[#6F6262]">ซีรีส์</div>
+                                <div class="font-bold text-[#4A4A4A]">${p.model_series || '-'}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] text-[#6F6262]">รหัส / สถานะ</div>
+                                <div class="font-bold ${isAvailable ? 'text-green-700' : 'text-red-600'}">
+                                    ${isAvailable ? `ว่าง (${p.stock} ชิ้น)` : p.status}
+                                </div>
+                            </div>
                         </div>
+
+                        <div class="flex items-baseline gap-2 mb-6">
+                            <span class="font-serif text-4xl font-bold text-[#BF4B72]">฿${Number(p.p).toLocaleString()}</span>
+                            <span class="text-xs text-[#6F6262]">/ วัน · มัดจำ 30% ของค่าเช่า (ขั้นต่ำ ฿500)</span>
+                        </div>
+
+                        <!-- วิธีรับ-คืนอุปกรณ์ -->
+                        <div class="mb-5">
+                            <label class="block text-xs font-semibold text-[#6F6262] mb-2">วิธีรับ-คืนอุปกรณ์</label>
+                            <div class="space-y-2.5" id="pickup-method-group">
+                                <label class="flex items-center gap-3 p-3.5 rounded-2xl border border-[#BF4B72] bg-[#F9E3EA]/60 cursor-pointer">
+                                    <input type="radio" name="pickup_method" value="รับ-คืนที่ร้าน" checked class="accent-[#BF4B72]">
+                                    <div>
+                                        <div class="text-sm font-bold text-[#4A4A4A]">รับ-คืนที่ร้าน</div>
+                                        <div class="text-xs text-[#6F6262]">ฟรี · ตรวจสภาพร่วมกันที่หน้าร้าน</div>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 p-3.5 rounded-2xl border border-[#EBD3D1] bg-white hover:bg-[#FFF5F5] cursor-pointer">
+                                    <input type="radio" name="pickup_method" value="จัดส่งถึงที่" class="accent-[#BF4B72]">
+                                    <div>
+                                        <div class="text-sm font-bold text-[#4A4A4A]">จัดส่งถึงที่</div>
+                                        <div class="text-xs text-[#6F6262]">เริ่ม ฿150 · ทั่วกรุงเทพฯ</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- วันรับ - วันคืน -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label for="rent-start-date" class="block text-xs font-semibold text-[#6F6262] mb-1.5">วันรับ</label>
+                                <input type="date" id="rent-start-date" min="${todayStr}" class="w-full bg-white border border-[#D9B5BA] rounded-xl px-3.5 py-2.5 text-sm text-[#4A4A4A]">
+                            </div>
+                            <div>
+                                <label for="rent-return-date" class="block text-xs font-semibold text-[#6F6262] mb-1.5">วันคืน</label>
+                                <input type="date" id="rent-return-date" min="${todayStr}" class="w-full bg-white border border-[#D9B5BA] rounded-xl px-3.5 py-2.5 text-sm text-[#4A4A4A]">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="handleRentNowClick('${p.id}')" ${!isAvailable ? 'disabled' : ''} class="flex-1 py-3.5 px-6 rounded-full font-bold text-white shadow transition flex items-center justify-center gap-2 ${isAvailable ? 'bg-[#9E4763] hover:bg-[#863852]' : 'bg-gray-400 cursor-not-allowed'}">
+                                <span>${isAvailable ? 'เช่าเลย' : 'ไม่พร้อมให้เช่า'}</span>
+                                <i class="fa-solid fa-arrow-right text-xs"></i>
+                            </button>
+                            <button type="button" onclick="apiToggleFavorite('${p.id}')" class="w-12 h-12 rounded-full border border-[#D9B5BA] bg-white hover:bg-[#FFF5F5] text-[#4A4A4A] flex items-center justify-center transition" aria-label="บันทึก">
+                                <i class="fa-regular fa-heart"></i>
+                            </button>
+                        </div>
+
+                        <p class="text-xs text-[#6F6262] mt-4">
+                            <i class="fa-solid fa-check text-[#BF4B72] mr-1"></i> ยกเลิกหรือเลื่อนวันฟรีล่วงหน้า 48 ชม.
+                        </p>
                     </div>
-                    <div class="car" data-carousel tabindex="0" role="region" aria-label="สินค้าที่เข้ากัน">${related.map((r, n) => card(r, n)).join('')}</div>
-                </section>
+                </div>
             </main>`;
         }
 
         /* ---------- [COMPONENT 10] ADMIN VIEW (แผงจัดการผู้ใช้และสินค้าสำหรับแอดมิน) ---------- */
         function admin() {
+            setTimeout(async () => {
+                await apiFetchEquipmentTypes();
+                apiAdminFetchUsers();
+                apiFetchProducts().then(() => renderAdminProductsTable());
+                apiAdminFetchAdmins();
+            }, 0);
+
+            const me = state.userProfile || {};
+            const typeOptionsHtml = (equipmentTypesCache.length
+                ? equipmentTypesCache
+                : ['Camera', 'Cinema Camera', 'Lens', 'Microphone', 'Audio', 'Lighting', 'Computer', 'Speaker', 'Accessory']
+            ).map(t => `<option value="${t}">${t}</option>`).join('');
+
             return `
-            <!-- ==================== ADMIN VIEW (ระบบจัดการแอดมินเดิม) ==================== -->
-            <main class="wrap mt-8">
+            <main class="admin-shell mt-6">
                 <section id="admin-view" class="bg-white rounded-3xl border border-[#EBD3D1] shadow-md overflow-hidden">
-                    <!-- Header แอดมิน -->
-                    <div class="w-full bg-[#F2D4CE]/60 p-5 border-b border-[#EBD3D1] flex justify-between items-center flex-wrap gap-4">
-                        <h2 class="font-bold text-[#4A4A4A] text-lg flex items-center gap-2">
-                            <i class="fa-solid fa-shield-halved text-[#BF4B72]"></i>
-                            User Management for Administrator
-                        </h2>
-                        <button type="button" onclick="logoutAdmin()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full shadow transition flex items-center gap-2 font-medium text-sm">
+                    <div class="w-full bg-[#F2D4CE]/60 px-6 py-4 border-b border-[#EBD3D1] flex justify-between items-center flex-wrap gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#BF4B72] shadow-sm">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold text-[#4A4A4A] text-lg leading-tight">Administrator Management</h2>
+                                <p class="text-xs text-[#6F6262]">เข้าสู่ระบบในฐานะ: <b>${me.username || 'Admin'}</b></p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="logoutAdmin()" class="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-full shadow transition flex items-center gap-2 font-medium text-sm">
                             <i class="fa-solid fa-right-from-bracket"></i> Logout
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-[220px_1fr] min-h-[460px]">
-                        <!-- Sidebar เมนูฝั่งซ้าย -->
-                        <div class="bg-[#FFF5F5] border-r border-[#EBD3D1] p-4 flex flex-col gap-2">
-                            <button type="button" onclick="openAdminTab('admin-profile')" id="btn-admin-profile" class="admin-tab-btn flex items-center gap-3 px-4 py-3 bg-[#D9B5BD] rounded-xl transition font-bold text-[#4A4A4A] shadow-sm">
-                                <i class="fa-regular fa-circle-user"></i> Profile
+                    <div class="admin-layout-grid">
+                        <aside class="bg-[#FFF5F5] border-b md:border-b-0 md:border-r border-[#EBD3D1] p-4 flex md:flex-col gap-2 overflow-x-auto">
+                            <button type="button" onclick="openAdminTab('admin-users')" id="btn-admin-users" class="admin-tab-btn flex items-center gap-3 px-4 py-3 bg-[#D9B5BD] rounded-xl transition font-bold text-[#4A4A4A] shadow-sm whitespace-nowrap">
+                                <i class="fa-solid fa-users w-4"></i> Users
                             </button>
-                            <button type="button" onclick="openAdminTab('admin-users')" id="btn-admin-users" class="admin-tab-btn flex items-center gap-3 px-4 py-3 hover:bg-[#F2D4CE]/50 rounded-xl transition text-[#6F6262]">
-                                <i class="fa-solid fa-users"></i> Users
+                            <button type="button" onclick="openAdminTab('admin-products')" id="btn-admin-products" class="admin-tab-btn flex items-center gap-3 px-4 py-3 hover:bg-[#F2D4CE]/50 rounded-xl transition text-[#6F6262] whitespace-nowrap">
+                                <i class="fa-solid fa-camera w-4"></i> Products
                             </button>
-                            <button type="button" onclick="openAdminTab('admin-products')" id="btn-admin-products" class="admin-tab-btn flex items-center gap-3 px-4 py-3 hover:bg-[#F2D4CE]/50 rounded-xl transition text-[#6F6262]">
-                                <i class="fa-solid fa-box"></i> Products
+                            <button type="button" onclick="openAdminTab('admin-admins')" id="btn-admin-admins" class="admin-tab-btn flex items-center gap-3 px-4 py-3 hover:bg-[#F2D4CE]/50 rounded-xl transition text-[#6F6262] whitespace-nowrap">
+                                <i class="fa-solid fa-user-shield w-4"></i> Admins
                             </button>
-                        </div>
+                            <button type="button" onclick="openAdminTab('admin-profile')" id="btn-admin-profile" class="admin-tab-btn flex items-center gap-3 px-4 py-3 hover:bg-[#F2D4CE]/50 rounded-xl transition text-[#6F6262] whitespace-nowrap">
+                                <i class="fa-regular fa-circle-user w-4"></i> Profile
+                            </button>
+                        </aside>
 
-                        <!-- เนื้อหาฝั่งขวา -->
-                        <div class="p-6 md:p-8 bg-white">
-                            <!-- TAB 1: Profile -->
-                            <div id="admin-profile" class="admin-tab-content block">
-                                <div class="bg-pink-100 text-center py-2.5 mb-6 rounded-xl text-pink-900 font-bold shadow-sm">ข้อมูลแอดมิน (Profile)</div>
-                                <div class="bg-[#fcf3f6] border border-pink-200 p-8 rounded-2xl shadow-sm max-w-xl mx-auto space-y-4 text-gray-700">
-                                    <div class="flex justify-center mb-6">
-                                        <i class="fa-solid fa-user-tie text-6xl text-[#BF4B72]"></i>
-                                    </div>
-                                    <p class="border-b border-pink-200 pb-2"><strong class="text-gray-900 w-32 inline-block">ชื่อ-นามสกุล:</strong> พิมพ์ปวีณ์ เพชรเจริญ</p>
-                                    <p class="border-b border-pink-200 pb-2"><strong class="text-gray-900 w-32 inline-block">รหัสประจำตัว:</strong> 6887039</p>
-                                    <p class="border-b border-pink-200 pb-2"><strong class="text-gray-900 w-32 inline-block">อีเมล:</strong> admin@lekhafong.com</p>
-                                    <p><strong class="text-gray-900 w-32 inline-block">Username:</strong> admin_pimpawee</p>
+                        <div class="p-6 md:p-8 bg-white min-w-0">
+                            <!-- TAB 1: Users (คงเดิม) -->
+                            <div id="admin-users" class="admin-tab-content block">
+                                <div class="bg-[#F2D4CE]/50 px-5 py-3 mb-6 rounded-xl text-[#4A4A4A] font-bold flex justify-between items-center">
+                                    <span>ระบบจัดการผู้ใช้งาน (Customers)</span>
+                                    <span id="user-count-badge" class="text-xs bg-white px-3 py-1 rounded-full text-[#BF4B72]">0 รายการ</span>
                                 </div>
-                            </div>
-
-                            <!-- TAB 2: Users -->
-                            <div id="admin-users" class="admin-tab-content hidden">
-                                <div class="bg-[#F2D4CE]/50 text-center py-2.5 mb-6 rounded-xl text-[#4A4A4A] font-bold">ระบบจัดการผู้ใช้ (Users)</div>
-                                <div id="user-list-view" class="overflow-x-auto">
-                                    <table class="w-full text-left border-collapse bg-white shadow-sm rounded-xl overflow-hidden">
-                                        <tr class="bg-[#4A4A4A] text-white">
-                                            <th class="p-4">Username</th>
-                                            <th class="p-4">Email</th>
-                                            <th class="p-4 text-center">Action</th>
-                                        </tr>
-                                        <tr class="border-b hover:bg-gray-50 transition">
-                                            <td class="p-4">customer_01</td>
-                                            <td class="p-4">cust01@gmail.com</td>
-                                            <td class="p-4 text-center">
-                                                <button type="button" onclick="toggleUserDetails('customer_01', 'cust01@gmail.com')" class="text-[#BF4B72] hover:underline font-medium">ดูเพิ่มเติม</button>
-                                            </td>
-                                        </tr>
-                                        <tr class="border-b hover:bg-gray-50 transition">
-                                            <td class="p-4">photographer_x</td>
-                                            <td class="p-4">photo.x@gmail.com</td>
-                                            <td class="p-4 text-center">
-                                                <button type="button" onclick="toggleUserDetails('photographer_x', 'photo.x@gmail.com')" class="text-[#BF4B72] hover:underline font-medium">ดูเพิ่มเติม</button>
-                                            </td>
-                                        </tr>
+                                <div id="user-list-view" class="overflow-x-auto rounded-xl border border-[#EBD3D1]">
+                                    <table class="w-full text-left border-collapse bg-white">
+                                        <thead>
+                                            <tr class="bg-[#4A4A4A] text-white text-sm">
+                                                <th class="p-4">ID</th>
+                                                <th class="p-4">Username</th>
+                                                <th class="p-4">ชื่อ-นามสกุล</th>
+                                                <th class="p-4">Email</th>
+                                                <th class="p-4">เบอร์โทร</th>
+                                                <th class="p-4 text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="admin-users-tbody" class="text-sm divide-y divide-[#EBD3D1]">
+                                            <tr><td colspan="6" class="p-6 text-center text-[#6F6262]">กำลังโหลดข้อมูล...</td></tr>
+                                        </tbody>
                                     </table>
                                 </div>
-
                                 <div id="user-detail-view" class="hidden">
-                                    <button type="button" onclick="backToUserList()" class="mb-4 text-[#BF4B72] hover:underline font-medium"><i class="fa-solid fa-arrow-left mr-2"></i>กลับหน้ารายชื่อ</button>
-                                    <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-8 rounded-2xl shadow-sm space-y-4">
-                                        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-[#EBD3D1] pb-2">รายละเอียดผู้ใช้งาน</h3>
-                                        <p><strong>Username:</strong> <span id="dt-user" class="text-gray-600"></span></p>
-                                        <p><strong>Email:</strong> <span id="dt-email" class="text-gray-600"></span></p>
-                                        <p><strong>ที่อยู่:</strong> 999 ถ.พุทธมณฑลสาย 4 ต.ศาลายา อ.พุทธมณฑล จ.นครปฐม</p>
-                                        <p><strong>เบอร์โทรติดต่อ:</strong> 081-234-5678</p>
-                                        <div class="flex gap-4 mt-8 pt-4 border-t border-[#EBD3D1]">
-                                            <button type="button" onclick="apiAdminUpdateUser(document.getElementById('dt-user').innerText, {})" class="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 rounded-full font-bold shadow transition">Update</button>
-                                            <button type="button" onclick="apiAdminDeleteUser(document.getElementById('dt-user').innerText)" class="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full font-bold shadow transition">Delete</button>
+                                    <button type="button" onclick="backToUserList()" class="mb-4 text-[#BF4B72] hover:underline font-medium inline-flex items-center gap-2">
+                                        <i class="fa-solid fa-arrow-left"></i> กลับหน้ารายชื่อผู้ใช้
+                                    </button>
+                                    <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-6 md:p-8 rounded-2xl shadow-sm w-full">
+                                        <h3 class="text-xl font-bold text-[#4A4A4A] mb-6 border-b border-[#EBD3D1] pb-3">รายละเอียดและแก้ไขข้อมูลผู้ใช้งาน</h3>
+                                        <input type="hidden" id="dt-account-id">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Username</label>
+                                                <input type="text" id="dt-username" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Email</label>
+                                                <input type="email" id="dt-email" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">ชื่อ (First Name)</label>
+                                                <input type="text" id="dt-fname" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">นามสกุล (Last Name)</label>
+                                                <input type="text" id="dt-lname" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">เบอร์โทรติดต่อ</label>
+                                                <input type="text" id="dt-phone" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">ที่อยู่ (Address)</label>
+                                                <textarea id="dt-address" rows="2" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm"></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-wrap gap-3 mt-8 pt-4 border-t border-[#EBD3D1]">
+                                            <button type="button" onclick="submitUserUpdate()" class="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 rounded-full font-bold shadow transition text-sm">Update</button>
+                                            <button type="button" onclick="apiAdminDeleteUser(document.getElementById('dt-account-id').value, document.getElementById('dt-username').value)" class="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-full font-bold shadow transition text-sm">Delete</button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- TAB 3: Products -->
+                            <!-- TAB 2: Products -->
                             <div id="admin-products" class="admin-tab-content hidden">
-                                <div class="bg-[#F2D4CE]/50 text-center py-2.5 mb-6 rounded-xl text-[#4A4A4A] font-bold">ระบบจัดการสินค้า (Products)</div>
-                                <div id="product-list-view" class="overflow-x-auto">
-                                    <div class="flex justify-end mb-4">
-                                        <button type="button" onclick="showAddProduct()" class="px-4 py-2 bg-[#BF4B72] hover:bg-[#A63C61] text-white rounded-full font-bold shadow transition flex items-center gap-2 text-sm">
-                                            <i class="fa-solid fa-plus"></i> Add Product
-                                        </button>
-                                    </div>
-                                    <table class="w-full text-left border-collapse bg-white shadow-sm rounded-xl overflow-hidden">
-                                        <tr class="bg-[#4A4A4A] text-white">
-                                            <th class="p-4">Product ID</th>
-                                            <th class="p-4">Product Name</th>
-                                            <th class="p-4">Stock</th>
-                                            <th class="p-4 text-center">Action</th>
-                                        </tr>
-                                        <tr class="border-b hover:bg-gray-50 transition">
-                                            <td class="p-4">CAM-001</td>
-                                            <td class="p-4">Sony A7 IV</td>
-                                            <td class="p-4">3</td>
-                                            <td class="p-4 text-center">
-                                                <button type="button" onclick="toggleProductDetails('CAM-001', 'Sony A7 IV', '3', '900')" class="text-[#BF4B72] hover:underline font-medium">ดูเพิ่มเติม</button>
-                                            </td>
-                                        </tr>
-                                        <tr class="border-b hover:bg-gray-50 transition">
-                                            <td class="p-4">CAM-002</td>
-                                            <td class="p-4">Canon EOS R6</td>
-                                            <td class="p-4">4</td>
-                                            <td class="p-4 text-center">
-                                                <button type="button" onclick="toggleProductDetails('CAM-002', 'Canon EOS R6', '4', '850')" class="text-[#BF4B72] hover:underline font-medium">ดูเพิ่มเติม</button>
-                                            </td>
-                                        </tr>
+                                <div class="bg-[#F2D4CE]/50 px-5 py-3 mb-6 rounded-xl text-[#4A4A4A] font-bold flex justify-between items-center flex-wrap gap-3">
+                                    <span>ระบบจัดการอุปกรณ์ให้เช่า (Equipment)</span>
+                                    <button type="button" onclick="showAddProduct()" class="px-4 py-2 bg-[#BF4B72] hover:bg-[#A63C61] text-white rounded-full font-bold shadow transition flex items-center gap-2 text-xs">
+                                        <i class="fa-solid fa-plus"></i> Add Product
+                                    </button>
+                                </div>
+
+                                <div id="product-list-view" class="overflow-x-auto rounded-xl border border-[#EBD3D1]">
+                                    <table class="w-full text-left border-collapse bg-white">
+                                        <thead>
+                                            <tr class="bg-[#4A4A4A] text-white text-sm">
+                                                <th class="p-4">ID</th>
+                                                <th class="p-4">รูป</th>
+                                                <th class="p-4">Product Name</th>
+                                                <th class="p-4">Brand / Type</th>
+                                                <th class="p-4">Daily Rate</th>
+                                                <th class="p-4">Stock / Status</th>
+                                                <th class="p-4 text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="admin-products-tbody" class="text-sm divide-y divide-[#EBD3D1]">
+                                            <tr><td colspan="7" class="p-6 text-center text-[#6F6262]">กำลังโหลดข้อมูล...</td></tr>
+                                        </tbody>
                                     </table>
                                 </div>
 
                                 <!-- Edit Product -->
                                 <div id="product-detail-view" class="hidden">
-                                    <button type="button" onclick="backToProductList()" class="mb-4 text-[#BF4B72] hover:underline font-medium"><i class="fa-solid fa-arrow-left mr-2"></i>กลับหน้ารายการสินค้า</button>
-                                    <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-8 rounded-2xl shadow-sm space-y-4">
-                                        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-[#EBD3D1] pb-2">รายละเอียดสินค้า (Edit Product)</h3>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div class="space-y-4">
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Product ID</label>
-                                                    <input type="text" id="pd-id" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Rent price (ราคาเช่า/วัน)</label>
-                                                    <input type="number" id="pd-price" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5" value="900">
-                                                </div>
+                                    <button type="button" onclick="backToProductList()" class="mb-4 text-[#BF4B72] hover:underline font-medium inline-flex items-center gap-2">
+                                        <i class="fa-solid fa-arrow-left"></i> กลับหน้ารายการอุปกรณ์
+                                    </button>
+                                    <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-6 md:p-8 rounded-2xl shadow-sm w-full">
+                                        <div class="flex justify-between items-center flex-wrap gap-3 mb-6 border-b border-[#EBD3D1] pb-3">
+                                            <h3 class="text-xl font-bold text-[#4A4A4A]">แก้ไขข้อมูลอุปกรณ์ (Edit Equipment)</h3>
+                                            <button type="button" onclick="openProductImageModal('edit')" class="px-4 py-2 rounded-full bg-white border border-[#BF4B72] text-[#BF4B72] hover:bg-[#F9E3EA] text-xs font-bold shadow-sm transition inline-flex items-center gap-2">
+                                                <i class="fa-regular fa-images"></i> จัดการรูปภาพ (1 Main + 4 Detail)
+                                            </button>
+                                        </div>
+
+                                        <div id="edit-pd-img-summary" class="mb-5"></div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Equipment ID</label>
+                                                <input type="text" id="pd-id" readonly class="bg-gray-100 border border-[#D9B5BA] rounded-xl p-2.5 text-sm text-gray-500">
                                             </div>
-                                            <div class="space-y-4">
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Product Name (ชื่อสินค้า)</label>
-                                                    <input type="text" id="pd-name" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Stock (สต็อกคงเหลือ)</label>
-                                                    <input type="number" id="pd-stock" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5">
-                                                </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Product Name *</label>
+                                                <input type="text" id="pd-name" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Type (ประเภท) *</label>
+                                                <select id="pd-type" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                                    ${typeOptionsHtml}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Brand (ยี่ห้อ)</label>
+                                                <input type="text" id="pd-brand" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Serial Number</label>
+                                                <input type="text" id="pd-serial" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Model Series</label>
+                                                <input type="text" id="pd-series" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Daily Rate (ราคาเช่า/วัน) *</label>
+                                                <input type="number" id="pd-price" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Stock (จำนวนสต็อก)</label>
+                                                <input type="number" id="pd-stock" min="0" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Status (สถานะ)</label>
+                                                <select id="pd-status" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                                    <option value="Available">Available</option>
+                                                    <option value="In Use">In Use</option>
+                                                    <option value="Maintenance">Maintenance</option>
+                                                </select>
+                                            </div>
+                                            <div class="md:col-span-3">
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Description</label>
+                                                <textarea id="pd-desc" rows="2" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm"></textarea>
                                             </div>
                                         </div>
-                                        <div class="flex justify-center gap-6 mt-8 pt-4 border-t border-[#EBD3D1]">
-                                            <button type="button" onclick="apiAdminUpdateProduct(document.getElementById('pd-id').value, { name: document.getElementById('pd-name').value, price: document.getElementById('pd-price').value, stock: document.getElementById('pd-stock').value })" class="px-8 py-2 text-yellow-900 bg-yellow-400 hover:bg-yellow-500 font-bold rounded-full shadow transition">Update</button>
-                                            <button type="button" onclick="apiAdminDeleteProduct(document.getElementById('pd-id').value)" class="px-8 py-2 text-white bg-red-500 hover:bg-red-600 font-bold rounded-full shadow transition">Delete</button>
+                                        <div class="flex flex-wrap gap-3 mt-8 pt-4 border-t border-[#EBD3D1]">
+                                            <button type="button" onclick="submitProductUpdate()" class="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-yellow-950 font-bold rounded-full shadow transition text-sm">Update</button>
+                                            <button type="button" onclick="apiAdminDeleteProduct(document.getElementById('pd-id').value, document.getElementById('pd-name').value)" class="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow transition text-sm">Delete</button>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Add Product -->
                                 <div id="product-add-view" class="hidden">
-                                    <button type="button" onclick="backToProductList()" class="mb-4 text-[#BF4B72] hover:underline font-medium"><i class="fa-solid fa-arrow-left mr-2"></i>ยกเลิก</button>
-                                    <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-8 rounded-2xl shadow-sm space-y-4">
-                                        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-[#EBD3D1] pb-2">เพิ่มสินค้าใหม่ (Add Product)</h3>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div class="space-y-4">
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Product ID</label>
-                                                    <input type="text" id="new-pd-id" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5" placeholder="e.g. CAM-005">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Rent price (ราคาเช่า)</label>
-                                                    <input type="number" id="new-pd-price" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5" placeholder="e.g. 1000">
-                                                </div>
+                                    <button type="button" onclick="backToProductList()" class="mb-4 text-[#BF4B72] hover:underline font-medium inline-flex items-center gap-2">
+                                        <i class="fa-solid fa-arrow-left"></i> ยกเลิก
+                                    </button>
+                                    <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-6 md:p-8 rounded-2xl shadow-sm w-full">
+                                        <div class="flex justify-between items-center flex-wrap gap-3 mb-6 border-b border-[#EBD3D1] pb-3">
+                                            <h3 class="text-xl font-bold text-[#4A4A4A]">เพิ่มอุปกรณ์ใหม่ (Add Equipment)</h3>
+                                            <button type="button" onclick="openProductImageModal('add')" class="px-4 py-2 rounded-full bg-white border border-[#BF4B72] text-[#BF4B72] hover:bg-[#F9E3EA] text-xs font-bold shadow-sm transition inline-flex items-center gap-2">
+                                                <i class="fa-solid fa-plus"></i> เพิ่มรูปภาพ (1 Main + 4 Detail)
+                                            </button>
+                                        </div>
+
+                                        <div id="add-pd-img-summary" class="mb-5"></div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Product Name *</label>
+                                                <input type="text" id="new-pd-name" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm" placeholder="เช่น Sony A7V Mirrorless">
                                             </div>
-                                            <div class="space-y-4">
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Product Name (ชื่อสินค้า)</label>
-                                                    <input type="text" id="new-pd-name" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5" placeholder="e.g. Fujifilm X-T5">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs mb-1 text-gray-500">Stock (สต็อกคงเหลือ)</label>
-                                                    <input type="number" id="new-pd-stock" class="w-full bg-white border border-[#D9B5BA] rounded-lg p-2.5" placeholder="e.g. 2">
-                                                </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Daily Rate (บาท/วัน) *</label>
+                                                <input type="number" id="new-pd-price" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm" placeholder="เช่น 1500">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Type (ประเภท) *</label>
+                                                <select id="new-pd-type" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                                    ${typeOptionsHtml}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Brand (ยี่ห้อ)</label>
+                                                <input type="text" id="new-pd-brand" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm" value="Sony">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Serial Number</label>
+                                                <input type="text" id="new-pd-serial" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm" placeholder="เช่น SNY-A75-001">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Stock (จำนวนสต็อก)</label>
+                                                <input type="number" id="new-pd-stock" min="0" value="1" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Status</label>
+                                                <select id="new-pd-status" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                                    <option value="Available">Available</option>
+                                                    <option value="In Use">In Use</option>
+                                                    <option value="Maintenance">Maintenance</option>
+                                                </select>
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Description</label>
+                                                <textarea id="new-pd-desc" rows="2" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm" placeholder="รายละเอียดสเปกอุปกรณ์"></textarea>
                                             </div>
                                         </div>
-                                        <div class="flex justify-center mt-8 pt-4 border-t border-[#EBD3D1]">
-                                            <button type="button" onclick="apiAdminAddProduct({ id: document.getElementById('new-pd-id').value, name: document.getElementById('new-pd-name').value, price: document.getElementById('new-pd-price').value, stock: document.getElementById('new-pd-stock').value })" class="px-8 py-2 text-white bg-[#BF4B72] hover:bg-[#A63C61] font-bold rounded-full shadow transition">Save / Add</button>
+                                        <div class="flex justify-end mt-8 pt-4 border-t border-[#EBD3D1]">
+                                            <button type="button" onclick="submitNewProduct()" class="px-8 py-2.5 text-white bg-[#BF4B72] hover:bg-[#A63C61] font-bold rounded-full shadow transition text-sm">Save Product</button>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB 3: Admins (คงเดิม) -->
+                            <div id="admin-admins" class="admin-tab-content hidden">
+                                <div class="bg-[#F2D4CE]/50 px-5 py-3 mb-6 rounded-xl text-[#4A4A4A] font-bold flex justify-between items-center flex-wrap gap-3">
+                                    <span>ระบบจัดการผู้ดูแลระบบ (Admins)</span>
+                                    <button type="button" onclick="showAddAdminForm()" class="px-4 py-2 bg-[#BF4B72] hover:bg-[#A63C61] text-white rounded-full font-bold shadow transition flex items-center gap-2 text-xs">
+                                        <i class="fa-solid fa-user-plus"></i> Add Admin
+                                    </button>
+                                </div>
+                                <div id="admin-list-view" class="overflow-x-auto rounded-xl border border-[#EBD3D1]">
+                                    <table class="w-full text-left border-collapse bg-white">
+                                        <thead>
+                                            <tr class="bg-[#4A4A4A] text-white text-sm">
+                                                <th class="p-4">Admin ID</th>
+                                                <th class="p-4">Username</th>
+                                                <th class="p-4">ชื่อ-นามสกุล</th>
+                                                <th class="p-4">Email</th>
+                                                <th class="p-4 text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="admin-list-tbody" class="text-sm divide-y divide-[#EBD3D1]">
+                                            <tr><td colspan="5" class="p-6 text-center text-[#6F6262]">กำลังโหลดข้อมูล...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div id="admin-form-view" class="hidden">
+                                    <button type="button" onclick="backToAdminList()" class="mb-4 text-[#BF4B72] hover:underline font-medium inline-flex items-center gap-2">
+                                        <i class="fa-solid fa-arrow-left"></i> กลับหน้ารายชื่อ Admin
+                                    </button>
+                                    <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-6 md:p-8 rounded-2xl shadow-sm w-full">
+                                        <h3 id="admin-form-title" class="text-xl font-bold text-[#4A4A4A] mb-6 border-b border-[#EBD3D1] pb-3">เพิ่มผู้ดูแลระบบ (Add Admin)</h3>
+                                        <input type="hidden" id="adm-edit-account-id">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Username *</label>
+                                                <input type="text" id="adm-username" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Email *</label>
+                                                <input type="email" id="adm-email" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">ชื่อ (First Name) *</label>
+                                                <input type="text" id="adm-fname" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">นามสกุล (Last Name)</label>
+                                                <input type="text" id="adm-lname" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Password (ตัวเลขเท่านั้น) *</label>
+                                                <input type="password" id="adm-password" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm" placeholder="เว้นว่างหากไม่เปลี่ยนรหัส (ตอนแก้ไข)">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Confirm Password</label>
+                                                <input type="password" id="adm-confirm-password" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Address</label>
+                                                <input type="text" id="adm-address" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-end mt-8 pt-4 border-t border-[#EBD3D1]">
+                                            <button type="button" onclick="submitAdminForm()" class="px-8 py-2.5 text-white bg-[#BF4B72] hover:bg-[#A63C61] font-bold rounded-full shadow transition text-sm">บันทึกข้อมูล Admin</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB 4: Profile (คงเดิม) -->
+                            <div id="admin-profile" class="admin-tab-content hidden">
+                                <div class="bg-[#F2D4CE]/50 px-5 py-3 mb-6 rounded-xl text-[#4A4A4A] font-bold">ข้อมูลแอดมินปัจจุบัน (Profile)</div>
+                                <div class="bg-[#FFF5F5] border border-[#EBD3D1] p-8 rounded-2xl shadow-sm max-w-2xl space-y-4 text-[#4A4A4A]">
+                                    <div class="flex items-center gap-4 mb-4">
+                                        <div class="w-16 h-16 rounded-full bg-[#F9E3EA] text-[#BF4B72] flex items-center justify-center text-2xl">
+                                            <i class="fa-solid fa-user-tie"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-xl font-bold">${me.first_name || me.username || 'Administrator'} ${me.last_name || ''}</h3>
+                                            <span class="text-xs px-3 py-1 rounded-full bg-[#D9B5BD] font-semibold">Role: ${me.role || 'Admin'}</span>
+                                        </div>
+                                    </div>
+                                    <p class="border-b border-[#EBD3D1] pb-2"><strong class="w-36 inline-block">Account ID:</strong> ${me.id || '-'}</p>
+                                    <p class="border-b border-[#EBD3D1] pb-2"><strong class="w-36 inline-block">Username:</strong> ${me.username || '-'}</p>
+                                    <p><strong class="w-36 inline-block">Email:</strong> ${me.email || '-'}</p>
                                 </div>
                             </div>
                         </div>
@@ -963,14 +1750,6 @@ const $ = (s, r = document) => r.querySelector(s);
                             ${MENU.map(([l, k, t]) => `<a href="#" ${goAttrs(k, t)}>${l}</a>`).join('')}
                         </div>
                     </div>
-                    <div>
-                        <h4>ติดต่อ &amp; ที่ตั้ง</h4>
-                        <a href="mailto:hello@lekhafong.example">${ic('mail')}hello@lekhafong.example</a>
-                        <a href="#" onclick="event.preventDefault()">${ic('chat')}LINE @lekhafong</a>
-                        <a class="addr" href="#" onclick="event.preventDefault()">${ic('pin')}<span>LekhaFong Studio<br>ซอยสุขุมวิท 55 เขตวัฒนา กรุงเทพฯ 10110</span></a>
-                        <p>ทุกวัน 09:00 – 19:00</p>
-                        <a class="maplink" href="#" onclick="event.preventDefault()">ดูแผนที่${ic('arrow')}</a>
-                    </div>
                 </div>
                 <div class="wrap copy">
                     <hr class="dots">
@@ -980,16 +1759,8 @@ const $ = (s, r = document) => r.querySelector(s);
         }
 
         /* ============================================================================
-           5. INTERACTIVE HANDLERS (ฟังก์ชันจัดการ Login, Search, Admin, Carousel)
-           ============================================================================ */
-
-        // เปิด / ปิด Modal (ไม่เก็บลง History Stack)
-        function toggleModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (!modal) return;
-            modal.classList.toggle('hidden');
-            modal.classList.toggle('flex');
-        }
+        5. INTERACTIVE HANDLERS (ฟังก์ชันจัดการ Login, Search, Admin, Carousel)
+        ============================================================================ */
 
         // สลับแท็บ Log in / Sign up ภายใน Modal เดิม
         function switchAuthTab(tab) {
@@ -1013,95 +1784,27 @@ const $ = (s, r = document) => r.querySelector(s);
         // จัดการการกด Submit ฟอร์ม Login
         async function handleLoginSubmit(event) {
             event.preventDefault();
-            const emailInput = document.getElementById('login-email');
-            const passwordInput = document.getElementById('login-password');
-            const email = emailInput ? emailInput.value.trim() : '';
-            const password = passwordInput ? passwordInput.value : '';
+            const email = document.getElementById('login-email')?.value.trim() || '';
+            const password = document.getElementById('login-password')?.value || '';
 
-            // เรียก API Placeholder สำหรับเชื่อมต่อ MySQL
-            await apiLoginUser(email, password);
+            const user = await apiLoginUser(email, password);
+            if (!user) return;
 
-            // ทำงานร่วมกับ simulateLogin เดิม
-            simulateLogin(email);
-        }
-
-        // จำลองการล็อกอิน (รองรับทั้งโหมด Admin และผู้ใช้ทั่วไป)
-        function simulateLogin(emailValue = '') {
-            const email = emailValue || (document.getElementById('login-email')?.value || '');
-            if (email.toLowerCase().includes('admin') || email === '') {
-                state.isAdmin = true;
-                state.currentUser = 'Admin';
-                toggleModal('login-modal');
+            toggleModal('login-modal');
+            if (user.role === 'Admin') {
                 goToPage('admin');
             } else {
-                state.isAdmin = false;
-                state.currentUser = email.split('@')[0];
-                toggleModal('login-modal');
                 render();
             }
         }
 
-        // ออกจากระบบแอดมินและกลับหน้าแรกพร้อมล้าง Stack
         function logoutAdmin() {
-            state.isAdmin = false;
-            state.currentUser = null;
+            localStorage.removeItem('lekhafong_auth');
+            syncAuthFromStorage();
+            showToast('ออกจากระบบเรียบร้อยแล้ว', 'success');
             goToPage('home');
         }
 
-        // จัดการการกด Submit ฟอร์ม Sign up
-        async function handleSignupSubmit(event) {
-            event.preventDefault();
-            const formData = {
-                first_name: document.getElementById('su-first').value,
-                last_name: document.getElementById('su-last').value,
-                email: document.getElementById('su-email').value,
-                phone: document.getElementById('su-phone').value,
-                address: document.getElementById('su-address').value
-            };
-            await apiRegisterUser(formData);
-        }
-
-        // ฟังก์ชันค้นหาหลักและตัวกรองขั้นสูง
-        async function submitSearchBar(event) {
-            event.preventDefault();
-            state.filters.keyword = document.getElementById('sb-keyword')?.value || '';
-            state.filters.pickupDate = document.getElementById('sb-pickup')?.value || '';
-            state.filters.returnDate = document.getElementById('sb-return')?.value || '';
-            await apiFetchProducts(state.filters);
-            goToPage('search');
-        }
-
-        async function applyAdvanceSearch() {
-            state.filters.maxPrice = +(document.getElementById('adv-max-price')?.value || 3000);
-            state.filters.brand = document.getElementById('adv-brand')?.value || 'ทุกยี่ห้อ';
-            await apiFetchProducts(state.filters);
-            goToPage('search');
-        }
-
-        function resetAdvanceFilters() {
-            state.filters = { keyword: '', pickupDate: '', returnDate: '', maxPrice: 3000, brand: 'ทุกยี่ห้อ' };
-            state.type = -1;
-            render();
-        }
-
-        // ฟังก์ชันกดปุ่ม "เช่าเลย" ในหน้ารายละเอียดสินค้า
-        async function handleRentNow() {
-            const product = P[state.item];
-            const pickupMethod = document.querySelector('input[name="pk"]:checked')?.value || 'store';
-            const pickupDate = document.getElementById('detail-pickup')?.value || 'ยังไม่ระบุ';
-            const returnDate = document.getElementById('detail-return')?.value || 'ยังไม่ระบุ';
-
-            await apiCreateBooking({
-                productId: product.id,
-                productName: product.n,
-                pickupMethod,
-                pickupDate,
-                returnDate,
-                dailyPrice: product.p
-            });
-        }
-
-        // ---------------- ฟังก์ชันระบบย่อยในหน้า Admin ----------------
         function openAdminTab(tabId) {
             document.querySelectorAll('.admin-tab-content').forEach(tab => {
                 tab.classList.remove('block');
@@ -1120,11 +1823,54 @@ const $ = (s, r = document) => r.querySelector(s);
             activeBtn.classList.remove('text-[#6F6262]', 'hover:bg-[#F2D4CE]/50');
         }
 
-        function toggleUserDetails(username, email) {
+        function renderAdminUsersTable() {
+            const tbody = document.getElementById('admin-users-tbody');
+            const badge = document.getElementById('user-count-badge');
+            if (badge) badge.textContent = `${adminUsersCache.length} รายการ`;
+            if (!tbody) return;
+
+            if (!adminUsersCache.length) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-[#6F6262]">ยังไม่มีข้อมูลผู้ใช้งาน</td></tr>';
+                return;
+            }
+            tbody.innerHTML = adminUsersCache.map(u => `
+                <tr class="hover:bg-[#FFF5F5]/60 transition">
+                    <td class="p-4 font-medium">${u.account_id}</td>
+                    <td class="p-4 font-semibold text-[#4A4A4A]">${u.username}</td>
+                    <td class="p-4">${u.first_name || ''} ${u.last_name || ''}</td>
+                    <td class="p-4">${u.email}</td>
+                    <td class="p-4">${u.phone || '-'}</td>
+                    <td class="p-4 text-center">
+                        <button type="button" onclick="openUserDetailById(${u.account_id})" class="text-[#BF4B72] hover:underline font-semibold">ดูเพิ่มเติม</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openUserDetailById(accountId) {
+            const u = adminUsersCache.find(x => x.account_id === accountId);
+            if (!u) return;
             document.getElementById('user-list-view').classList.add('hidden');
             document.getElementById('user-detail-view').classList.remove('hidden');
-            document.getElementById('dt-user').innerText = username;
-            document.getElementById('dt-email').innerText = email;
+            document.getElementById('dt-account-id').value = u.account_id;
+            document.getElementById('dt-username').value = u.username || '';
+            document.getElementById('dt-email').value = u.email || '';
+            document.getElementById('dt-fname').value = u.first_name || '';
+            document.getElementById('dt-lname').value = u.last_name || '';
+            document.getElementById('dt-phone').value = u.phone || '';
+            document.getElementById('dt-address').value = u.address || '';
+        }
+
+        function submitUserUpdate() {
+            const accountId = document.getElementById('dt-account-id').value;
+            apiAdminUpdateUser(accountId, {
+                username: document.getElementById('dt-username').value.trim(),
+                email: document.getElementById('dt-email').value.trim(),
+                first_name: document.getElementById('dt-fname').value.trim(),
+                last_name: document.getElementById('dt-lname').value.trim(),
+                phone: document.getElementById('dt-phone').value.trim(),
+                address: document.getElementById('dt-address').value.trim()
+            });
         }
 
         function backToUserList() {
@@ -1132,15 +1878,74 @@ const $ = (s, r = document) => r.querySelector(s);
             document.getElementById('user-list-view').classList.remove('hidden');
         }
 
-        function toggleProductDetails(id, name, stock, price = '900') {
+        function renderAdminProductsTable() {
+            const tbody = document.getElementById('admin-products-tbody');
+            if (!tbody) return;
+            if (!adminProductsCache.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6F6262]">ยังไม่มีข้อมูลอุปกรณ์</td></tr>';
+                return;
+            }
+            tbody.innerHTML = adminProductsCache.map(item => `
+                <tr class="hover:bg-[#FFF5F5]/60 transition">
+                    <td class="p-4 font-medium">#${item.equipment_id}</td>
+                    <td class="p-4 font-semibold text-[#4A4A4A]">${item.name}</td>
+                    <td class="p-4">${item.brand} · ${item.type}</td>
+                    <td class="p-4 text-xs font-mono">${item.serial_number}</td>
+                    <td class="p-4 font-semibold text-[#BF4B72]">฿${Number(item.daily_rate).toLocaleString()}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${item.status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">
+                            ${item.status}
+                        </span>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button type="button" onclick="openProductDetailById(${item.equipment_id})" class="text-[#BF4B72] hover:underline font-semibold">ดูเพิ่มเติม</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openProductDetailById(equipmentId) {
+            const item = adminProductsCache.find(x => x.equipment_id === equipmentId);
+            if (!item) return;
             document.getElementById('product-list-view').classList.add('hidden');
             document.getElementById('product-add-view').classList.add('hidden');
             document.getElementById('product-detail-view').classList.remove('hidden');
 
-            document.getElementById('pd-id').value = id;
-            document.getElementById('pd-name').value = name;
-            document.getElementById('pd-stock').value = stock;
-            document.getElementById('pd-price').value = price;
+            document.getElementById('pd-id').value = item.equipment_id;
+            document.getElementById('pd-name').value = item.name || '';
+            document.getElementById('pd-type').value = item.type || '';
+            document.getElementById('pd-brand').value = item.brand || '';
+            document.getElementById('pd-serial').value = item.serial_number || '';
+            document.getElementById('pd-series').value = item.model_series || '';
+            document.getElementById('pd-price').value = item.daily_rate || 0;
+            document.getElementById('pd-status').value = item.status || 'Available';
+            document.getElementById('pd-desc').value = item.description || '';
+        }
+
+        function submitProductUpdate() {
+            const id = document.getElementById('pd-id').value;
+            apiAdminUpdateProduct(id, {
+                name: document.getElementById('pd-name').value.trim(),
+                type: document.getElementById('pd-type').value.trim(),
+                brand: document.getElementById('pd-brand').value.trim(),
+                serial_number: document.getElementById('pd-serial').value.trim(),
+                model_series: document.getElementById('pd-series').value.trim(),
+                daily_rate: document.getElementById('pd-price').value,
+                status: document.getElementById('pd-status').value,
+                description: document.getElementById('pd-desc').value.trim()
+            });
+        }
+
+        function submitNewProduct() {
+            apiAdminAddProduct({
+                name: document.getElementById('new-pd-name').value.trim(),
+                daily_rate: document.getElementById('new-pd-price').value,
+                type: document.getElementById('new-pd-type').value.trim(),
+                brand: document.getElementById('new-pd-brand').value.trim(),
+                serial_number: document.getElementById('new-pd-serial').value.trim(),
+                status: document.getElementById('new-pd-status').value,
+                description: document.getElementById('new-pd-desc').value.trim()
+            });
         }
 
         function showAddProduct() {
@@ -1155,9 +1960,678 @@ const $ = (s, r = document) => r.querySelector(s);
             document.getElementById('product-list-view').classList.remove('hidden');
         }
 
+        function renderAdminListTable() {
+            const tbody = document.getElementById('admin-list-tbody');
+            if (!tbody) return;
+            if (!adminListCache.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-[#6F6262]">ยังไม่มีข้อมูล Admin</td></tr>';
+                return;
+            }
+            tbody.innerHTML = adminListCache.map(a => `
+                <tr class="hover:bg-[#FFF5F5]/60 transition">
+                    <td class="p-4 font-medium">#${a.admin_id}</td>
+                    <td class="p-4 font-semibold text-[#4A4A4A]">${a.username}</td>
+                    <td class="p-4">${a.first_name || ''} ${a.last_name || ''}</td>
+                    <td class="p-4">${a.email}</td>
+                    <td class="p-4 text-center space-x-3">
+                        <button type="button" onclick="openEditAdminForm(${a.account_id})" class="text-[#BF4B72] hover:underline font-semibold">Edit</button>
+                        <button type="button" onclick="apiAdminDeleteAdmin(${a.account_id}, '${a.username}')" class="text-red-500 hover:underline font-semibold">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function showAddAdminForm() {
+            document.getElementById('admin-list-view').classList.add('hidden');
+            document.getElementById('admin-form-view').classList.remove('hidden');
+            document.getElementById('admin-form-title').textContent = 'เพิ่มผู้ดูแลระบบ (Add Admin)';
+            document.getElementById('adm-edit-account-id').value = '';
+            ['adm-username', 'adm-email', 'adm-fname', 'adm-lname', 'adm-password', 'adm-confirm-password', 'adm-address']
+                .forEach(id => document.getElementById(id).value = '');
+        }
+
+        function openEditAdminForm(accountId) {
+            const a = adminListCache.find(x => x.account_id === accountId);
+            if (!a) return;
+            document.getElementById('admin-list-view').classList.add('hidden');
+            document.getElementById('admin-form-view').classList.remove('hidden');
+            document.getElementById('admin-form-title').textContent = `แก้ไขข้อมูล Admin (${a.username})`;
+            document.getElementById('adm-edit-account-id').value = a.account_id;
+            document.getElementById('adm-username').value = a.username || '';
+            document.getElementById('adm-email').value = a.email || '';
+            document.getElementById('adm-fname').value = a.first_name || '';
+            document.getElementById('adm-lname').value = a.last_name || '';
+            document.getElementById('adm-address').value = a.address || '';
+            document.getElementById('adm-password').value = '';
+            document.getElementById('adm-confirm-password').value = '';
+        }
+
+        function submitAdminForm() {
+            const editId = document.getElementById('adm-edit-account-id').value;
+            const payload = {
+                username: document.getElementById('adm-username').value.trim(),
+                email: document.getElementById('adm-email').value.trim(),
+                first_name: document.getElementById('adm-fname').value.trim(),
+                last_name: document.getElementById('adm-lname').value.trim(),
+                password: document.getElementById('adm-password').value,
+                confirmPassword: document.getElementById('adm-confirm-password').value,
+                address: document.getElementById('adm-address').value.trim()
+            };
+            if (editId) {
+                apiAdminUpdateAdmin(editId, payload);
+            } else {
+                apiAdminAddAdmin(payload);
+            }
+        }
+
+        function backToAdminList() {
+            document.getElementById('admin-form-view').classList.add('hidden');
+            document.getElementById('admin-list-view').classList.remove('hidden');
+        }
+        // ---------------- 1. ล้างฟอร์ม Login ทุกครั้งที่เปิด/ปิด ----------------
+        function resetLoginFormState() {
+            const form = document.getElementById('login-form');
+            if (form) form.reset();
+            const emailInput = document.getElementById('login-email');
+            const passInput = document.getElementById('login-password');
+            if (emailInput) emailInput.value = '';
+            if (passInput) {
+                passInput.value = '';
+                passInput.type = 'password';
+            }
+            const errEl = document.getElementById('login-error-msg');
+            if (errEl) errEl.remove();
+            const submitBtn = form?.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+            }
+        }
+
+        function toggleModal(modalId) {
+            const el = document.getElementById(modalId);
+            if (!el) return;
+            if (modalId === 'login-modal') {
+                resetLoginFormState();
+                setTimeout(resetLoginFormState, 20);
+            }
+            const willOpen = el.classList.contains('hidden');
+            el.classList.toggle('hidden');
+            if (willOpen) {
+                el.classList.add('flex', 'items-center', 'justify-center');
+            } else {
+                el.classList.remove('flex');
+            }
+        }
+
+        async function handleLoginSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('login-email')?.value.trim() || '';
+            const password = document.getElementById('login-password')?.value || '';
+
+            const user = await apiLoginUser(email, password);
+            if (!user) return;
+
+            resetLoginFormState();
+            toggleModal('login-modal');
+
+            if (user.role === 'Admin') {
+                pendingRentalDraft = null;
+                goToPage('admin');
+                return;
+            }
+
+            render();
+            if (pendingRentalDraft) {
+                const draft = { ...pendingRentalDraft };
+                pendingRentalDraft = null;
+                openRentalPopup(draft.productId, draft.startDate, draft.returnDate, draft.pickupMethod);
+            }
+        }
+
+        // ---------------- 2. ระบบ Popup อัปโหลดรูปภาพ (1 Main + 4 Detail) ----------------
+        let activeProductImages = { main_image: '', detail_images: ['', '', '', ''] };
+        let imageModalDraft = { mode: 'add', main: '', mainFile: null, details: ['', '', '', ''], detailFiles: [null, null, null, null] };
+
+        function renderProductImageSummary(targetId) {
+            const box = document.getElementById(targetId);
+            if (!box) return;
+            const details = activeProductImages.detail_images.filter(Boolean);
+            if (!activeProductImages.main_image && details.length === 0) {
+                box.innerHTML = `<div class="text-xs text-[#6F6262] bg-white border border-dashed border-[#D9B5BA] rounded-xl px-4 py-3">ยังไม่ได้เลือกรูปภาพ (หากไม่เพิ่ม ระบบจะใช้ไอคอน Placeholder เดิม)</div>`;
+                return;
+            }
+            box.innerHTML = `
+                <div class="flex items-center gap-3 flex-wrap bg-white border border-[#EBD3D1] rounded-2xl p-3">
+                    ${activeProductImages.main_image ? `
+                        <div class="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-[#BF4B72]">
+                            <img src="${resolveImageUrl(activeProductImages.main_image)}" class="w-full h-full object-cover">
+                            <span class="absolute bottom-0 inset-x-0 bg-[#BF4B72] text-white text-[9px] text-center">Main</span>
+                        </div>
+                    ` : ''}
+                    ${details.map((u, i) => `
+                        <div class="relative w-14 h-14 rounded-xl overflow-hidden border border-[#D9B5BA]">
+                            <img src="${resolveImageUrl(u)}" class="w-full h-full object-cover">
+                            <span class="absolute bottom-0 inset-x-0 bg-black/50 text-white text-[9px] text-center">#${i + 1}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function openProductImageModal(mode) {
+            imageModalDraft = {
+                mode,
+                main: activeProductImages.main_image || '',
+                mainFile: null,
+                details: [
+                    activeProductImages.detail_images[0] || '',
+                    activeProductImages.detail_images[1] || '',
+                    activeProductImages.detail_images[2] || '',
+                    activeProductImages.detail_images[3] || ''
+                ],
+                detailFiles: [null, null, null, null]
+            };
+            renderProductImageModal();
+        }
+
+        function renderProductImageModal() {
+            const existing = document.getElementById('product-image-modal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'product-image-modal';
+            modal.className = 'lf-modal-backdrop';
+            modal.innerHTML = `
+                <div class="lf-modal-card">
+                    <div class="lf-modal-body">
+                        <div class="flex justify-between items-center mb-5 pb-3 border-b border-[#EBD3D1]">
+                            <div>
+                                <h3 class="text-lg font-bold text-[#4A4A4A]">จัดการรูปภาพอุปกรณ์</h3>
+                                <p class="text-xs text-[#6F6262]">รองรับไฟล์ JPG, PNG, WEBP ขนาดไม่เกิน 5MB ต่อรูป</p>
+                            </div>
+                            <button type="button" onclick="closeProductImageModal()" class="w-8 h-8 rounded-full hover:bg-[#FFF5F5] text-[#6F6262]">&times;</button>
+                        </div>
+
+                        <div class="img-upload-layout">
+                            <!-- Main Image -->
+                            <div>
+                                <div class="text-sm font-bold text-[#4A4A4A] mb-2">Main <span class="text-xs font-normal text-[#BF4B72]">(รูปหลัก)</span></div>
+                                <div class="img-drop-slot" onclick="triggerImageSlotInput('main', 0)">
+                                    ${imageModalDraft.main ? `
+                                        <img src="${resolveImageUrl(imageModalDraft.main)}" alt="Main Preview">
+                                        <div class="img-slot-actions" onclick="event.stopPropagation()">
+                                            <button type="button" onclick="triggerImageSlotInput('main', 0)" class="px-3 py-1.5 rounded-full bg-white text-[#4A4A4A] text-xs font-bold shadow">เปลี่ยน</button>
+                                            <button type="button" onclick="removeImageSlot('main', 0)" class="px-3 py-1.5 rounded-full bg-red-500 text-white text-xs font-bold shadow">ลบ</button>
+                                        </div>
+                                    ` : `<i class="fa-solid fa-plus text-2xl text-[#6F6262]"></i>`}
+                                </div>
+                            </div>
+
+                            <!-- 4 Detail Images -->
+                            <div>
+                                <div class="text-sm font-bold text-[#4A4A4A] mb-2">Detail <span class="text-xs font-normal text-[#6F6262]">(รูปเพิ่มเติมสูงสุด 4 รูป)</span></div>
+                                <div class="img-detail-grid">
+                                    ${[0, 1, 2, 3].map(idx => `
+                                        <div class="img-drop-slot" onclick="triggerImageSlotInput('detail', ${idx})">
+                                            ${imageModalDraft.details[idx] ? `
+                                                <img src="${resolveImageUrl(imageModalDraft.details[idx])}" alt="Detail ${idx + 1}">
+                                                <div class="img-slot-actions" onclick="event.stopPropagation()">
+                                                    <button type="button" onclick="triggerImageSlotInput('detail', ${idx})" class="px-2.5 py-1 rounded-full bg-white text-[#4A4A4A] text-[11px] font-bold shadow">เปลี่ยน</button>
+                                                    <button type="button" onclick="removeImageSlot('detail', ${idx})" class="px-2.5 py-1 rounded-full bg-red-500 text-white text-[11px] font-bold shadow">ลบ</button>
+                                                </div>
+                                            ` : `<i class="fa-solid fa-plus text-lg text-[#6F6262]"></i>`}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="file" id="hidden-img-picker" accept="image/jpeg,image/png,image/webp" class="hidden">
+
+                        <div class="lf-modal-actions flex justify-end gap-3 mt-7 pt-4 border-t border-[#EBD3D1]">
+                            <button type="button" onclick="closeProductImageModal()" class="px-6 py-2.5 rounded-full border border-[#D9B5BA] bg-white hover:bg-[#FFF5F5] text-sm font-semibold text-[#6F6262] transition">
+                                ยกเลิก
+                            </button>
+                            <button type="button" id="btn-confirm-upload-images" onclick="confirmProductImageModal()" class="px-7 py-2.5 rounded-full bg-[#BF4B72] hover:bg-[#A63C61] text-white text-sm font-bold shadow transition">
+                                บันทึกรูปภาพ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function triggerImageSlotInput(slotType, index) {
+            const picker = document.getElementById('hidden-img-picker');
+            if (!picker) return;
+            picker.value = '';
+            picker.onchange = (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                if (!validTypes.includes(file.type)) {
+                    showToast('กรุณาเลือกไฟล์รูปภาพ JPG, PNG หรือ WEBP เท่านั้น', 'error');
+                    return;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('ขนาดไฟล์รูปภาพต้องไม่เกิน 5MB', 'error');
+                    return;
+                }
+                const previewUrl = URL.createObjectURL(file);
+                if (slotType === 'main') {
+                    imageModalDraft.main = previewUrl;
+                    imageModalDraft.mainFile = file;
+                } else {
+                    imageModalDraft.details[index] = previewUrl;
+                    imageModalDraft.detailFiles[index] = file;
+                }
+                renderProductImageModal();
+            };
+            picker.click();
+        }
+
+        function removeImageSlot(slotType, index) {
+            if (slotType === 'main') {
+                imageModalDraft.main = '';
+                imageModalDraft.mainFile = null;
+            } else {
+                imageModalDraft.details[index] = '';
+                imageModalDraft.detailFiles[index] = null;
+            }
+            renderProductImageModal();
+        }
+
+        function closeProductImageModal() {
+            const modal = document.getElementById('product-image-modal');
+            if (modal) modal.remove();
+        }
+
+        async function confirmProductImageModal() {
+            const btn = document.getElementById('btn-confirm-upload-images');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'กำลังอัปโหลด...';
+            }
+            try {
+                let finalMain = imageModalDraft.main;
+                if (imageModalDraft.mainFile) {
+                    finalMain = await apiUploadImageFile(imageModalDraft.mainFile);
+                }
+                const finalDetails = [...imageModalDraft.details];
+                for (let i = 0; i < 4; i++) {
+                    if (imageModalDraft.detailFiles[i]) {
+                        finalDetails[i] = await apiUploadImageFile(imageModalDraft.detailFiles[i]);
+                    }
+                }
+                activeProductImages = {
+                    main_image: finalMain || '',
+                    detail_images: finalDetails
+                };
+                renderProductImageSummary(imageModalDraft.mode === 'edit' ? 'edit-pd-img-summary' : 'add-pd-img-summary');
+                closeProductImageModal();
+                showToast('อัปโหลดรูปภาพเรียบร้อยแล้ว กดบันทึกสินค้าเพื่อยืนยันข้อมูล', 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'บันทึกรูปภาพ';
+                }
+            }
+        }
+
+        // อัปเดตฟังก์ชัน Admin Products ให้ส่งรูปภาพและ Stock ไปบันทึกจริง
+        function renderAdminProductsTable() {
+            const tbody = document.getElementById('admin-products-tbody');
+            if (!tbody) return;
+            if (!adminProductsCache.length) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6F6262]">ยังไม่มีข้อมูลอุปกรณ์</td></tr>';
+                return;
+            }
+            tbody.innerHTML = adminProductsCache.map(item => `
+                <tr class="hover:bg-[#FFF5F5]/60 transition">
+                    <td class="p-4 font-medium">#${item.equipment_id}</td>
+                    <td class="p-4">
+                        ${item.main_image
+                            ? `<img src="${resolveImageUrl(item.main_image)}" class="w-11 h-11 rounded-xl object-cover border border-[#EBD3D1]">`
+                            : `<div class="w-11 h-11 rounded-xl bg-[#FFF5F5] border border-[#EBD3D1] flex items-center justify-center text-[#6F6262]"><i class="fa-solid fa-camera"></i></div>`
+                        }
+                    </td>
+                    <td class="p-4 font-semibold text-[#4A4A4A]">${item.name}</td>
+                    <td class="p-4">${item.brand} · ${item.type}</td>
+                    <td class="p-4 font-semibold text-[#BF4B72]">฿${Number(item.daily_rate).toLocaleString()}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${item.status === 'Available' && Number(item.stock ?? 1) > 0 ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">
+                            ${item.status} (${item.stock ?? 1})
+                        </span>
+                    </td>
+                    <td class="p-4 text-center">
+                        <button type="button" onclick="openProductDetailById(${item.equipment_id})" class="text-[#BF4B72] hover:underline font-semibold">ดูเพิ่มเติม</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openProductDetailById(equipmentId) {
+            const item = adminProductsCache.find(x => x.equipment_id === equipmentId);
+            if (!item) return;
+            document.getElementById('product-list-view').classList.add('hidden');
+            document.getElementById('product-add-view').classList.add('hidden');
+            document.getElementById('product-detail-view').classList.remove('hidden');
+
+            document.getElementById('pd-id').value = item.equipment_id;
+            document.getElementById('pd-name').value = item.name || '';
+            document.getElementById('pd-type').value = item.type || 'Camera';
+            document.getElementById('pd-brand').value = item.brand || '';
+            document.getElementById('pd-serial').value = item.serial_number || '';
+            document.getElementById('pd-series').value = item.model_series || '';
+            document.getElementById('pd-price').value = item.daily_rate || 0;
+            document.getElementById('pd-stock').value = item.stock ?? 1;
+            document.getElementById('pd-status').value = item.status || 'Available';
+            document.getElementById('pd-desc').value = item.description || '';
+
+            const parsedDetails = parseDetailImages(item.detail_images);
+            activeProductImages = {
+                main_image: item.main_image || '',
+                detail_images: [parsedDetails[0] || '', parsedDetails[1] || '', parsedDetails[2] || '', parsedDetails[3] || '']
+            };
+            renderProductImageSummary('edit-pd-img-summary');
+        }
+
+        function showAddProduct() {
+            document.getElementById('product-list-view').classList.add('hidden');
+            document.getElementById('product-detail-view').classList.add('hidden');
+            document.getElementById('product-add-view').classList.remove('hidden');
+            activeProductImages = { main_image: '', detail_images: ['', '', '', ''] };
+            renderProductImageSummary('add-pd-img-summary');
+        }
+
+        function submitProductUpdate() {
+            const id = document.getElementById('pd-id').value;
+            apiAdminUpdateProduct(id, {
+                name: document.getElementById('pd-name').value.trim(),
+                type: document.getElementById('pd-type').value,
+                brand: document.getElementById('pd-brand').value.trim(),
+                serial_number: document.getElementById('pd-serial').value.trim(),
+                model_series: document.getElementById('pd-series').value.trim(),
+                daily_rate: document.getElementById('pd-price').value,
+                stock: document.getElementById('pd-stock').value,
+                status: document.getElementById('pd-status').value,
+                description: document.getElementById('pd-desc').value.trim(),
+                main_image: activeProductImages.main_image || null,
+                detail_images: activeProductImages.detail_images.filter(Boolean)
+            });
+        }
+
+        function submitNewProduct() {
+            apiAdminAddProduct({
+                name: document.getElementById('new-pd-name').value.trim(),
+                daily_rate: document.getElementById('new-pd-price').value,
+                type: document.getElementById('new-pd-type').value,
+                brand: document.getElementById('new-pd-brand').value.trim(),
+                serial_number: document.getElementById('new-pd-serial').value.trim(),
+                stock: document.getElementById('new-pd-stock').value,
+                status: document.getElementById('new-pd-status').value,
+                description: document.getElementById('new-pd-desc').value.trim(),
+                main_image: activeProductImages.main_image || null,
+                detail_images: activeProductImages.detail_images.filter(Boolean)
+            });
+        }
+
+        // ---------------- 3. สลับรูปภาพในหน้า Product Detail ----------------
+        function switchProductDetailImage(fullUrl, thumbBtn) {
+            const mainImg = document.getElementById('pd-main-preview');
+            if (mainImg) mainImg.src = fullUrl;
+            document.querySelectorAll('.pd-thumb-btn').forEach(b => b.classList.remove('active'));
+            if (thumbBtn) thumbBtn.classList.add('active');
+        }
+
+        // ---------------- 4. ระบบกด "เช่าเลย" -> Rental Popup -> Policy Accordion -> Confirmation ----------------
+        const RENTAL_POLICIES = [
+            {
+                title: 'ค่ามัดจำและการคืนเงิน',
+                body: 'วางมัดจำ 30% ของค่าเช่า (ขั้นต่ำ ฿500) เพื่อยืนยันการจอง เมื่อคืนอุปกรณ์และตรวจสภาพเรียบร้อยแล้ว ระบบจะคืนเงินมัดจำเต็มจำนวนภายใน 24 ชั่วโมง'
+            },
+            {
+                title: 'ระยะเวลาเช่าและการคืนล่าช้า',
+                body: 'คิดค่าเช่าเป็นรายวัน (24 ชั่วโมง) ขั้นต่ำ 1 วัน หากคืนล่าช้าเกิน 2 ชั่วโมง คิดเพิ่ม 50% ของค่าเช่ารายวัน และเกินกว่า 1 วันคิดเต็มวัน'
+            },
+            {
+                title: 'การยกเลิกและเลื่อนวัน',
+                body: 'ยกเลิกหรือเลื่อนวันได้ฟรีล่วงหน้า 48 ชั่วโมง หลังจากนั้นหักค่าธรรมเนียม 20% ของค่าเช่า กรณีฝนตกหนักหรือเหตุสุดวิสัย ติดต่อทีมงานเพื่อเลื่อนวันได้'
+            },
+            {
+                title: 'ความเสียหายและการสูญหาย',
+                body: 'ตรวจสภาพร่วมกันทุกครั้งตอนรับและคืน หากเกิดความเสียหายจากการใช้งาน ผู้เช่ารับผิดชอบตามค่าซ่อมจริง กรณีสูญหายคิดตามราคาตลาดของอุปกรณ์'
+            },
+            {
+                title: 'เอกสารยืนยันตัวตน',
+                body: 'แสดงบัตรประชาชนตัวจริง (หรือหนังสือเดินทาง) ที่มีชื่อตรงกับผู้จองในวันรับอุปกรณ์ พร้อมลงนามในสัญญาเช่าและตรวจสภาพอุปกรณ์ร่วมกับเจ้าหน้าที่'
+            }
+        ];
+
+        function calculateRentalDays(startStr, returnStr) {
+            if (!startStr || !returnStr) return 0;
+            const s = new Date(startStr);
+            const r = new Date(returnStr);
+            if (isNaN(s.getTime()) || isNaN(r.getTime())) return 0;
+            return Math.ceil((r.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        function formatDateThaiSlash(dateStr) {
+            if (!dateStr) return '-';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        function handleRentNowClick(productId) {
+            const p = P.find(x => x.id === String(productId));
+            if (!p) return;
+
+            if (p.status !== 'Available' || Number(p.stock) <= 0) {
+                showToast('อุปกรณ์นี้ไม่พร้อมให้เช่าในช่วงวันที่เลือก', 'error');
+                return;
+            }
+
+            const startDate = document.getElementById('rent-start-date')?.value || '';
+            const returnDate = document.getElementById('rent-return-date')?.value || '';
+            const pickupMethod = document.querySelector('input[name="pickup_method"]:checked')?.value || 'รับ-คืนที่ร้าน';
+
+            if (!startDate || !returnDate) {
+                showToast('กรุณาเลือกวันรับและวันคืนอุปกรณ์ก่อนกดเช่าเลย', 'warning');
+                document.getElementById('rent-start-date')?.focus();
+                return;
+            }
+
+            const days = calculateRentalDays(startDate, returnDate);
+            if (days <= 0) {
+                showToast('วันคืนอุปกรณ์ต้องอยู่หลังวันรับอุปกรณ์อย่างน้อย 1 วัน', 'error');
+                document.getElementById('rent-return-date')?.focus();
+                return;
+            }
+
+            syncAuthFromStorage();
+            if (!state.currentUser || !state.userProfile) {
+                pendingRentalDraft = { productId: p.id, startDate, returnDate, pickupMethod };
+                showToast('กรุณาเข้าสู่ระบบก่อนทำรายการเช่าอุปกรณ์', 'warning');
+                toggleModal('login-modal');
+                return;
+            }
+
+            openRentalPopup(p.id, startDate, returnDate, pickupMethod);
+        }
+
+        function openRentalPopup(productId, startDate, returnDate, pickupMethod) {
+            const p = P.find(x => x.id === String(productId));
+            if (!p) return;
+
+            const days = calculateRentalDays(startDate, returnDate);
+            const dailyRate = Number(p.p) || 0;
+            const totalPrice = days * dailyRate;
+
+            const existing = document.getElementById('rental-confirm-popup');
+            if (existing) existing.remove();
+
+            // บันทึก state ร่วมกับ History API เพื่อรองรับ Browser Back
+            history.pushState({ ...history.state, modal: 'rental' }, '', window.location.search);
+
+            const modal = document.createElement('div');
+            modal.id = 'rental-confirm-popup';
+            modal.className = 'lf-modal-backdrop';
+            modal.innerHTML = `
+                <div class="lf-modal-card">
+                    <div class="lf-modal-body text-center">
+                        <span class="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-[#F9E3EA] text-[#BF4B72] mb-2">ยืนยันรายการเช่าอุปกรณ์</span>
+                        <h3 class="font-serif text-2xl md:text-3xl font-bold text-[#4A4A4A] mb-2">${p.n}</h3>
+                        <div class="text-2xl md:text-3xl font-bold text-[#4A4A4A] my-3">
+                            เช่า <span class="text-[#BF4B72]">${String(days).padStart(2, '0')}</span> วัน ราคาสุทธิ <span class="text-[#BF4B72]">${totalPrice.toLocaleString()}</span> บาท
+                        </div>
+
+                        <div class="bg-[#FFF5F5] border border-[#EBD3D1] rounded-2xl p-4 my-4 text-left text-xs md:text-sm space-y-1.5 text-[#6F6262]">
+                            <div class="flex justify-between"><span>สินค้า:</span><strong class="text-[#4A4A4A]">${p.n}</strong></div>
+                            <div class="flex justify-between"><span>ราคาต่อวัน:</span><strong class="text-[#4A4A4A]">฿${dailyRate.toLocaleString()} / วัน</strong></div>
+                            <div class="flex justify-between"><span>ช่วงวันที่เช่า:</span><strong class="text-[#4A4A4A]">${formatDateThaiSlash(startDate)} - ${formatDateThaiSlash(returnDate)} (${days} วัน)</strong></div>
+                            <div class="flex justify-between"><span>วิธีรับ-คืน:</span><strong class="text-[#4A4A4A]">${pickupMethod}</strong></div>
+                            <div class="flex justify-between pt-1.5 border-t border-[#EBD3D1] text-sm"><span>ราคาสุทธิ:</span><strong class="text-[#BF4B72] text-base">฿${totalPrice.toLocaleString()}</strong></div>
+                        </div>
+
+                        <hr class="border-[#EBD3D1] my-4">
+
+                        <!-- Policy Accordion 5 หัวข้อ -->
+                        <div class="rental-policy-box text-left mb-6">
+                            ${RENTAL_POLICIES.map((pol, idx) => `
+                                <div class="rental-policy-item">
+                                    <button type="button" onclick="toggleRentalPolicy(${idx})" class="rental-policy-trigger">
+                                        <span>${pol.title}</span>
+                                        <span id="pol-icon-${idx}" class="text-[#BF4B72] font-bold text-base">+</span>
+                                    </button>
+                                    <div id="pol-panel-${idx}" class="rental-policy-panel hidden">
+                                        ${pol.body}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="lf-modal-actions flex justify-center gap-4">
+                            <button type="button" onclick="cancelRentalPopup()" class="px-8 py-3 rounded-full border border-[#D9B5BA] bg-[#F5EFEF] hover:bg-[#EAE0E0] text-[#4A4A4A] font-bold text-sm transition min-w-[130px]">
+                                ยกเลิก
+                            </button>
+                            <button type="button" id="btn-confirm-rental-submit" onclick="confirmRentalBooking('${p.id}', '${startDate}', '${returnDate}', '${pickupMethod}')" class="px-8 py-3 rounded-full bg-[#BF4B72] hover:bg-[#A63C61] text-white font-bold text-sm shadow transition min-w-[130px]">
+                                ยืนยัน
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function toggleRentalPolicy(index) {
+            const panel = document.getElementById(`pol-panel-${index}`);
+            const icon = document.getElementById(`pol-icon-${index}`);
+            if (!panel || !icon) return;
+            const isHidden = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden');
+            icon.textContent = isHidden ? '−' : '+';
+        }
+
+        function cancelRentalPopup(fromPopState = false) {
+            const modal = document.getElementById('rental-confirm-popup');
+            if (modal) modal.remove();
+            // รีเซ็ตวันที่ในหน้า Product Detail เพื่อให้เลือกใหม่ได้สะอาดเมื่อเปิดครั้งถัดไป
+            const sInput = document.getElementById('rent-start-date');
+            const rInput = document.getElementById('rent-return-date');
+            if (sInput) sInput.value = '';
+            if (rInput) rInput.value = '';
+            if (!fromPopState && history.state?.modal === 'rental') {
+                history.back();
+            }
+        }
+
+        async function confirmRentalBooking(productId, startDate, returnDate, pickupMethod) {
+            const btn = document.getElementById('btn-confirm-rental-submit');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'กำลังบันทึก...';
+            }
+
+            try {
+                const rentalResult = await apiSubmitRental({
+                    account_id: state.userProfile.id,
+                    equipment_id: Number(productId),
+                    start_date: startDate,
+                    return_date: returnDate,
+                    pickup_method: pickupMethod
+                });
+
+                const popup = document.getElementById('rental-confirm-popup');
+                if (popup) popup.remove();
+
+                // โหลดข้อมูลสินค้าล่าสุดจาก MySQL เพื่อให้ Stock อัปเดตทันที
+                await apiFetchProducts();
+                showRentalSuccessPopup(rentalResult);
+            } catch (err) {
+                showToast(err.message, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'ยืนยัน';
+                }
+            }
+        }
+
+        function showRentalSuccessPopup(rental) {
+            const existing = document.getElementById('rental-success-popup');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'rental-success-popup';
+            modal.className = 'lf-modal-backdrop';
+            modal.innerHTML = `
+                <div class="lf-modal-card compact">
+                    <div class="lf-modal-body text-center py-8">
+                        <div class="w-20 h-20 rounded-full bg-[#2E8B57] text-white flex items-center justify-center mx-auto mb-5 shadow-lg">
+                            <i class="fa-solid fa-check text-4xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-bold text-[#4A4A4A] mb-1">ทำรายการเช่าสำเร็จ</h3>
+                        <p class="text-sm text-[#6F6262] mb-5">ขอบคุณที่ไว้วางใจและใช้บริการ LekhaFong Production</p>
+
+                        <div class="bg-[#FFF5F5] border border-[#EBD3D1] rounded-2xl p-4 mb-6 text-left text-xs space-y-1.5 text-[#6F6262]">
+                            <div class="flex justify-between"><span>รหัสการเช่า (Rental ID):</span><strong class="text-[#BF4B72]">#${rental.rental_id}</strong></div>
+                            <div class="flex justify-between"><span>สินค้า:</span><strong class="text-[#4A4A4A]">${rental.product_name}</strong></div>
+                            <div class="flex justify-between"><span>จำนวน:</span><strong class="text-[#4A4A4A]">${rental.rental_days} วัน (${formatDateThaiSlash(rental.start_date)} - ${formatDateThaiSlash(rental.return_date)})</strong></div>
+                            <div class="flex justify-between"><span>ราคาสุทธิ:</span><strong class="text-[#4A4A4A]">฿${Number(rental.total_price).toLocaleString()}</strong></div>
+                            <div class="flex justify-between"><span>สถานะ:</span><strong class="text-green-700">${rental.status}</strong></div>
+                        </div>
+
+                        <button type="button" onclick="finishRentalSuccess()" class="px-10 py-3 rounded-full bg-[#2E8B57] hover:bg-[#257247] text-white font-bold text-sm shadow transition">
+                            เรียบร้อย
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function finishRentalSuccess() {
+            const modal = document.getElementById('rental-success-popup');
+            if (modal) modal.remove();
+            if (history.state?.modal === 'rental') {
+                history.replaceState({ ...history.state, modal: null }, '', window.location.search);
+            }
+            render();
+        }
+
+        // รองรับปุ่ม Browser Back เวลาเปิด Rental Popup อยู่
+        window.addEventListener('popstate', () => {
+            if (document.getElementById('rental-confirm-popup')) {
+                cancelRentalPopup(true);
+            }
+        });
+
         /* ============================================================================
-           6. RENDER ENGINE & GLOBAL EVENT LISTENERS
-           ============================================================================ */
+        6. RENDER ENGINE & GLOBAL EVENT LISTENERS
+        ============================================================================ */
         function initCarousels() {
             document.querySelectorAll('[data-carousel]').forEach(car => {
                 const navEl = car.parentElement.querySelector('[data-car-nav]');
@@ -1176,6 +2650,7 @@ const $ = (s, r = document) => r.querySelector(s);
         }
 
         function render() {
+            enforceAdminGuard();
             const pages = { home, search: catalog, terms, team, detail, admin };
             const currentRenderer = pages[state.p] || home;
             const site = $('#site');
@@ -1189,14 +2664,28 @@ const $ = (s, r = document) => r.querySelector(s);
             const t = e.target;
             if (t.closest('a[href="#"]')) e.preventDefault();
 
-            // เปลี่ยนหน้าจากลิงก์เมนู / การ์ดแบรนด์ / Breadcrumb
+            const navBtn = t.closest('[data-scroll-track]');
+            if (navBtn) {
+                e.preventDefault();
+                const dir = Number(navBtn.dataset.scrollDir) || 1;
+                window.scrollBrands(navBtn.dataset.scrollTrack, dir);
+                return;
+            }
+            // เปลี่ยนหน้าจากลิงก์เมนู / การ์ดแบรนด์ / การ์ดสินค้า / Breadcrumb
             const go = t.closest('[data-go]');
             if (go) {
                 const targetPage = go.dataset.go;
                 const targetType = targetPage === 'search'
                     ? (go.dataset.type === undefined ? -1 : +go.dataset.type)
                     : state.type;
-                goToPage(targetPage, { type: targetType });
+                state.filters.brand = (targetPage === 'search' && go.dataset.brand) ? go.dataset.brand : 'ทุกยี่ห้อ';
+
+                const clickedItem = go.dataset.item ?? go.dataset.id;
+                if (targetPage === 'detail' && clickedItem !== undefined) {
+                    state.item = clickedItem;
+                }
+
+                goToPage(targetPage, { type: targetType, item: state.item });
                 return;
             }
 
@@ -1204,6 +2693,10 @@ const $ = (s, r = document) => r.querySelector(s);
             const tc = t.closest('[data-type-chip]');
             if (tc) {
                 state.type = +tc.dataset.typeChip;
+                if (state.type === -1) {
+                    state.filters.brand = 'ทุกยี่ห้อ';
+                    state.filters.keyword = '';
+                }
                 render();
                 return;
             }
@@ -1225,11 +2718,23 @@ const $ = (s, r = document) => r.querySelector(s);
             }
 
             // คลิกการ์ดสินค้าเพื่อเปิดหน้ารายละเอียด
+            // เปิดหน้ารายละเอียดอุปกรณ์
             const det = t.closest('[data-detail]');
-            if (det && !t.closest('.fav')) {
-                const itemIndex = +det.dataset.detail;
-                apiFetchProductDetail(P[itemIndex]?.id);
-                goToPage('detail', { item: itemIndex });
+            if (det) {
+                goToPage('detail', { item: det.dataset.detail });
+                return;
+            }
+            // เปิด-ปิดแผงค้นหาขั้นสูง (วางต่อตรงนี้ได้เลย)
+            const advBtn = t.closest('[data-adv]');
+            if (advBtn) {
+                const wrap = advBtn.closest('.searchwrap') || document;
+                const panel = wrap.querySelector('.adv, [data-adv-panel]') || advBtn.closest('.sb-row')?.nextElementSibling;
+                if (panel) {
+                    const isOpen = panel.classList.toggle('open');
+                    advBtn.setAttribute('aria-expanded', String(isOpen));
+                    panel.hidden = !isOpen;
+                    panel.style.display = isOpen ? 'block' : '';
+                }
                 return;
             }
 

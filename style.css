@@ -396,3 +396,235 @@
             .band { padding: 44px 0 48px; }
             .car > .card { flex-basis: 82%; }
         }
+
+        /* ---------- Custom Toast Notification ---------- */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: calc(100vw - 32px);
+        }
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-left: 5px solid var(--accent);
+            color: var(--ink);
+            box-shadow: 0 18px 36px -18px rgba(74, 74, 74, 0.35);
+            font-size: 14.5px;
+            animation: toastIn 0.25s ease-out;
+        }
+        .toast.success { border-left-color: #2E8B57; }
+        .toast.success i { color: #2E8B57; }
+        .toast.error { border-left-color: #DC2626; }
+        .toast.error i { color: #DC2626; }
+        .toast.warning { border-left-color: #D97706; }
+        .toast.warning i { color: #D97706; }
+        .toast-msg { flex: 1; }
+        .toast-close { background: transparent; border: 0; font-size: 18px; color: var(--ink-2); cursor: pointer; padding: 0 4px; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---------- Admin Full-Width Responsive Layout ---------- */
+        .admin-shell {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+        .admin-layout-grid {
+            display: grid;
+            grid-template-columns: 230px minmax(0, 1fr);
+            min-height: 540px;
+        }
+        #admin-view input,
+        #admin-view select,
+        #admin-view textarea {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        @media (max-width: 768px) {
+            .admin-shell { padding: 0 14px; }
+            .admin-layout-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ---------- LekhaFong Modal Shell & Responsive Sizing ---------- */
+        .lf-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(45, 34, 36, 0.45);
+            backdrop-filter: blur(3px);
+            z-index: 9990;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .lf-modal-card {
+            background: #FFFFFF;
+            border: 1px solid #EBD3D1;
+            border-radius: 26px;
+            box-shadow: 0 24px 54px -16px rgba(74, 52, 56, 0.28);
+            width: 100%;
+            max-width: 680px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            color: #4A4A4A;
+            animation: lfPopIn 0.2s ease-out;
+        }
+
+        .lf-modal-card.compact {
+            max-width: 460px;
+        }
+
+        .lf-modal-body {
+            padding: 28px;
+            overflow-y: auto;
+        }
+
+        @keyframes lfPopIn {
+            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* ---------- Image Upload Grid (1 Main + 4 Detail) ---------- */
+        .img-upload-layout {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .img-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .img-drop-slot {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            border: 2px dashed #D9B5BA;
+            border-radius: 18px;
+            background: #FFF5F5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .img-drop-slot:hover {
+            border-color: #BF4B72;
+            background: #F9E3EA;
+        }
+
+        .img-drop-slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .img-slot-actions {
+            position: absolute;
+            inset: 0;
+            background: rgba(45, 34, 36, 0.52);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .img-drop-slot:hover .img-slot-actions {
+            opacity: 1;
+        }
+
+        /* ---------- Product Detail Real Gallery ---------- */
+        .pd-real-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: inherit;
+        }
+
+        .pd-thumb-btn {
+            border: 2px solid transparent;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #FFF5F5;
+            aspect-ratio: 1 / 1;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.15s;
+        }
+
+        .pd-thumb-btn.active {
+            border-color: #BF4B72;
+            box-shadow: 0 4px 12px rgba(191, 75, 114, 0.22);
+        }
+
+        /* ---------- Rental Policy Accordion ---------- */
+        .rental-policy-box {
+            border: 1px solid #EBD3D1;
+            border-radius: 18px;
+            background: #FFF5F5;
+            overflow: hidden;
+        }
+
+        .rental-policy-item {
+            border-bottom: 1px solid #EBD3D1;
+        }
+
+        .rental-policy-item:last-child {
+            border-bottom: none;
+        }
+
+        .rental-policy-trigger {
+            width: 100%;
+            padding: 13px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: transparent;
+            border: 0;
+            text-align: left;
+            font-size: 14px;
+            font-weight: 600;
+            color: #4A4A4A;
+            cursor: pointer;
+        }
+
+        .rental-policy-trigger:hover {
+            background: rgba(242, 212, 206, 0.45);
+        }
+
+        .rental-policy-panel {
+            padding: 0 16px 14px 16px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #6F6262;
+        }
+
+        @media (max-width: 640px) {
+            .lf-modal-body { padding: 20px 16px; }
+            .img-upload-layout { grid-template-columns: 1fr; }
+            .lf-modal-actions { flex-direction: column-reverse; }
+            .lf-modal-actions button { width: 100%; }
+        }
