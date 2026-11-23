@@ -7,7 +7,13 @@ const multer = require('multer');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:3031',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+
 app.use(express.json());
 
 // สร้างโฟลเดอร์เก็บไฟล์รูปภาพจริงใน backend/uploads
@@ -44,22 +50,19 @@ const upload = multer({
 // 1. DATABASE CONNECTION POOL
 // ============================================================================
 const db = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'lekhafong_production',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
 });
 
 (async () => {
     try {
         const conn = await db.getConnection();
-        console.log('✅ Connected to MySQL database:', process.env.DB_NAME || 'lekhafong_production');
+        console.log('Connected to MySQL database:', process.env.DB_NAME || 'lekhafong_production');
         conn.release();
     } catch (err) {
-        console.error('❌ MySQL Connection Error:', err.message);
+        console.error('MySQL Connection Error:', err.message);
     }
 })();
 
@@ -581,7 +584,7 @@ app.delete('/api/admins/:accountId', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT ;
 app.listen(PORT, () => {
-    console.log(`🚀 LekhaFong Backend running at http://localhost:${PORT}`);
+    console.log(`LekhaFong Backend running at http://localhost:${PORT}`);
 });
