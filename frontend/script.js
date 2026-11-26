@@ -966,7 +966,7 @@ const $ = (s, r = document) => r.querySelector(s);
         const logo = () => `
             <a class="logo" href="#" data-go="home" aria-label="LekhaFong หน้าแรก">
                 <img src="lekhaFongLogo.png" alt="logo" width="46">
-                <span class="animate-pulse brand-pulse" style="text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.745);">Lekha<b>Fong</b></span>
+                <h2 class="bran-pulse font-bold">LekhaFong</h2>
             </a>
         `;
 
@@ -1370,7 +1370,11 @@ const $ = (s, r = document) => r.querySelector(s);
                             <div>
                                 <img class="team-img drop-shadow-md" src="/pic_member/bpw032.png" alt="นันท์นภัส" style="width: 200px;"><br>
                                 <h2 class="font-bold text-lg text-[#4A4A4A]">นันท์นภัส ดาวดาษ</h2>
-                                <p class="text-[#A8727F] font-medium">6887032</p>
+                                <p class="text-[#A8727F] font-medium">ID: 6887032</p>
+                                <a href="https://www.instagram.com/b._.oww06" target="_blank" rel="noopener noreferrer" class="team-ig-link">
+                                    <i class="fa-brands fa-instagram"></i> 
+                                    <h6 class="team-rgb-name ">b._.oww06</h6>
+                                </a>
                             </div>
                         </div>
 
@@ -1379,7 +1383,11 @@ const $ = (s, r = document) => r.querySelector(s);
                             <div>
                                 <img class="team-img drop-shadow-md" src="/pic_member/mk039.png" alt="พิมพ์ปวีณ์" style="width: 200px;"><br>
                                 <h2 class="font-bold text-lg text-[#4A4A4A]">พิมพ์ปวีณ์ เพชรเจริญ</h2>
-                                <p class="text-[#A8727F] font-medium">6887039</p>
+                                <p class="text-[#A8727F] font-medium">ID: 6887039</p>
+                                <a href="https://www.instagram.com/mhiyoklnwza888/" target="_blank" rel="noopener noreferrer" class="team-ig-link">
+                                    <i class="fa-brands fa-instagram"></i>
+                                    <h6 class="team-rgb-name ">mhiyoklnwza888</h6>
+                                </a>
                             </div>
                         </div>
 
@@ -1388,7 +1396,11 @@ const $ = (s, r = document) => r.querySelector(s);
                             <div>
                                 <img class="team-img drop-shadow-md" src="/pic_member/guy042.png" alt="พีร์ระพี" style="width: 200px;"><br>
                                 <h2 class="font-bold text-lg text-[#4A4A4A]">พีร์ระพี คำฟอง</h2>
-                                <p class="text-[#A8727F] font-medium">6887042</p>
+                                <p class="text-[#A8727F] font-medium">ID: 6887042</p>
+                                <a href="https://www.instagram.com/peerapeek/" target="_blank" rel="noopener noreferrer" class="team-ig-link">
+                                    <i class="fa-brands fa-instagram"></i>
+                                    <h6 class="team-rgb-name ">peerapeek</h6>
+                                </a>
                             </div>
                         </div>
 
@@ -1397,7 +1409,11 @@ const $ = (s, r = document) => r.querySelector(s);
                             <div>
                                 <img class="team-img drop-shadow-md" src="/pic_member/sun053.png" alt="วริทธิ์ธวัฒน์" style="width: 300px;"><br>
                                 <h2 class="font-bold text-lg text-[#4A4A4A]">วริทธิ์ธวัฒน์ ศรีตระกูลชัย</h2>
-                                <p class="text-[#A8727F] font-medium">6887053</p>
+                                <p class="text-[#A8727F] font-medium">ID: 6887053</p>
+                                <a href="https://www.instagram.com/warittawat/" target="_blank" rel="noopener noreferrer" class="team-ig-link">
+                                    <i class="fa-brands fa-instagram"></i>
+                                    <h6 class="team-rgb-name ">warittawat</h6>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -1408,7 +1424,11 @@ const $ = (s, r = document) => r.querySelector(s);
                             <div>
                                 <img class="team-img drop-shadow-md" src="/pic_member/fn066.png" alt="อรปรียา" style="width: 200px;"><br>
                                 <h2 class="font-bold text-lg text-[#4A4A4A]">อรปรียา ร่มโพธิ์</h2>
-                                <p class="text-[#A8727F] font-medium">6887066</p>
+                                <p class="text-[#A8727F] font-medium">ID: 6887066</p>
+                                <a href="https://www.instagram.com/bambilalarain/" target="_blank" rel="noopener noreferrer" class="team-ig-link">
+                                    <i class="fa-brands fa-instagram"></i>
+                                    <h6 class="team-rgb-name ">bambilalarain</h6>
+                                </a>
                             </div>
                         </div>
                     </div>

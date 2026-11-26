@@ -30,12 +30,22 @@ a { color: inherit; }
 button, input, select, textarea { font: inherit; color: inherit; }
 
 /* เอฟเฟกต์กระพริบของชื่อเว็บ (สำรองกรณี Tailwind ยังโหลดไม่เสร็จ) */
-@keyframes pulseGlow {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.45; }
-}
-.brand-pulse {
-    animation: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.bran-pulse {
+    background: linear-gradient(
+        90deg,
+        #f2849e,
+        #f7a87c,
+        #e6c367,
+        #6dc7b3,
+        #7eb8da,
+        #b892e6,
+        #f2849e
+    );
+    background-size: 50% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: rgbPingPong 3s ease-in-out infinite;
 }
 
 /* ---------- Utility & Typography ---------- */
@@ -214,8 +224,7 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
 .tl h3 { font-size: 20px; font-weight: 600; }
 .tl p { color: var(--ink-2); font-size: 15px; }
 
-/* ---------- Team View (คง Layout และรูปภาพเดิม) ---------- */
-/* ---------- Team View (สีชมพู-ครีมโทนเดียวกับแบนเนอร์ + คง Layout รูปภาพเดิม) ---------- */
+/* ---------- Team View --------------------------- */
 .team-wrap {
     max-width: 1160px; margin: 36px auto 0; padding: 36px 28px 44px; border-radius: 36px;
     background: radial-gradient(90% 100% at 100% 0%, rgba(255,245,245,.9) 0%, rgba(255,245,245,0) 60%), linear-gradient(135deg, #F2D4CE 0%, #D9B5BD 100%);
@@ -225,14 +234,68 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
     background: rgba(255,253,253,.88); backdrop-filter: blur(8px); border: 1px solid var(--line);
     text-align: center; padding: 18px 24px; margin-bottom: 32px; border-radius: 22px;
 }
-.team-grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 22px; margin-bottom: 28px; }
+.team-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 28px;
+}
+@media (max-width: 900px) {
+    .team-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 540px) {
+    .team-grid-4 { grid-template-columns: 1fr; }
+}
 .team-card {
-    background: var(--paper); border: 1px solid var(--line); border-radius: 26px; padding: 26px 18px;
-    text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 26px; padding: 24px 16px;
+    text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    height: 100%;
     box-shadow: 0 18px 36px -24px rgba(120,70,85,.4); transition: transform .25s, box-shadow .25s, border-color .25s;
 }
 .team-card:hover { transform: translateY(-6px); border-color: var(--accent); box-shadow: 0 24px 42px -20px rgba(191,75,114,.35); }
-.team-img { margin: 0 auto 12px; object-fit: contain; }
+.team-img-box {
+    width: 100%;
+    height: 290px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+.team-img {
+    max-height: 280px;
+    max-width: 100%;
+    width: auto !important;
+    height: auto;
+    object-fit: contain;
+    margin: 0 auto;
+}
+.team-meta {
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.team-ig-link {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-d);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background .2s, color .2s, transform .2s;
+}
+.team-ig-link:hover {
+    background: var(--accent);
+    color: #fff;
+    transform: scale(1.03);
+}
 .team-member5 { width: 100%; max-width: 270px; }
 
 /* ---------- Product Detail Page ---------- */
@@ -713,4 +776,34 @@ input[type=range] { accent-color: var(--ink); width: 100%; }
     .live-banner { border-radius: 16px; }
     .banner-dots { bottom: 10px; left: 12px; gap: 6px; }
     .banner-dots button { padding: 4px 10px; font-size: 11px; }
+}
+
+/* ---------- เอฟเฟกต์ไฟ RGB เฉพาะตรงชื่อสมาชิก ---------- */
+@keyframes rgbPingPong {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.team-rgb-name {
+    background: linear-gradient(
+        90deg,
+        #ff2a6d,
+        #ff8c00,
+        #ffe600,
+        #05d5fa,
+        #b829ea,
+        #ff2a6d
+    );
+    background-size: 300% 300%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: rgbPingPong 3s ease-in-out infinite;
 }
