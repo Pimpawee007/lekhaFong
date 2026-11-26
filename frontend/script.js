@@ -529,6 +529,113 @@ const $ = (s, r = document) => r.querySelector(s);
             };
         }
 
+        // ---------------- Photo attribution (camera and lens catalog) ----------------
+        // Credits come from the generated camera/lens image-source manifests. The
+        // modal never exposes local upload paths; only creator, license and the
+        // original Commons file page are shown.
+        function getCameraCreditProduct(productId) {
+            const sources = [window.CAMERA_IMAGE_SOURCES, window.LENS_IMAGE_SOURCES];
+            for (const data of sources) {
+                if (!data || !Array.isArray(data.products)) continue;
+                const product = data.products.find(p => String(p.equipment_id) === String(productId));
+                if (product) return product;
+            }
+            return null;
+        }
+
+        function creditEscape(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function creditSlotLabel(slot) {
+            const labels = {
+                main: 'Main', rear: 'Rear', top: 'Top', side: 'Side',
+                side2: 'Side (second angle)', front: 'Front', alt: 'Alternative',
+                detail: 'Detail'
+            };
+            return labels[slot] || slot;
+        }
+
+        function openPhotoCredits(productId) {
+            const product = getCameraCreditProduct(productId);
+            if (!product || !Array.isArray(product.images) || product.images.length === 0) {
+                showToast('ไม่พบข้อมูลเครดิตภาพสำหรับอุปกรณ์นี้', 'warning');
+                return;
+            }
+            const existing = document.getElementById('photo-credits-modal');
+            if (existing) existing.remove();
+
+            const rows = product.images.map(img => {
+                const license = creditEscape(img.license || '');
+                const licenseUrl = img.license_url ? creditEscape(img.license_url) : '';
+                const sourceUrl = img.source_page_url ? creditEscape(img.source_page_url) : '';
+                const creator = creditEscape(img.creator || 'Unknown');
+                const title = creditEscape(img.source_title || '');
+                const required = img.attribution_required
+                    ? 'Attribution required.'
+                    : 'Attribution not legally required; credited voluntarily.';
+                return `
+                    <li class="rounded-2xl border border-[#EBD3D1] bg-[#FFF9F9] p-4">
+                        <div class="flex items-start justify-between gap-3 mb-2">
+                            <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#F9E3EA] text-[#9E4763]">${creditEscape(creditSlotLabel(img.slot))}</span>
+                            <span class="text-[11px] text-[#6F6262] text-right">${creditEscape(img.downloaded_at || '')}</span>
+                        </div>
+                        <p class="text-sm font-semibold text-[#4A4A4A] mb-1">${creator}</p>
+                        <p class="text-xs text-[#6F6262] mb-2">“${title}”</p>
+                        <p class="text-xs text-[#6F6262] mb-2">
+                            License: ${licenseUrl
+                                ? `<a href="${licenseUrl}" target="_blank" rel="noopener noreferrer" class="text-[#9E4763] underline underline-offset-2">${license}</a>`
+                                : license}
+                            · ${creditEscape(required)}
+                        </p>
+                        ${sourceUrl ? `<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-[#9E4763] underline underline-offset-2">Source photograph on Wikimedia Commons</a>` : ''}
+                    </li>
+                `;
+            }).join('');
+
+            const modal = document.createElement('div');
+            modal.id = 'photo-credits-modal';
+            modal.className = 'lf-modal-backdrop';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.setAttribute('aria-labelledby', 'photo-credits-title');
+            modal.innerHTML = `
+                <div class="lf-modal-card" style="max-width:720px;">
+                    <div class="lf-modal-body">
+                        <div class="flex items-start justify-between gap-4 mb-4 pb-3 border-b border-[#EBD3D1]">
+                            <div>
+                                <h3 id="photo-credits-title" class="text-lg font-bold text-[#4A4A4A]">Photo credits</h3>
+                                <p class="text-xs text-[#6F6262] mt-1">${creditEscape(product.model)} · ${product.images.length} photograph${product.images.length === 1 ? '' : 's'}</p>
+                            </div>
+                            <button type="button" onclick="closePhotoCredits()" aria-label="Close photo credits" class="w-8 h-8 rounded-full hover:bg-[#FFF5F5] text-[#6F6262] text-xl leading-none">&times;</button>
+                        </div>
+                        <p class="text-xs text-[#6F6262] mb-4 leading-relaxed">Photographs are used under the licenses below. All images are resized and converted to WebP for delivery; no other changes were made. Follow a source link to inspect the original file and its license on Wikimedia Commons.</p>
+                        <ul class="space-y-3">${rows}</ul>
+                    </div>
+                </div>
+            `;
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) closePhotoCredits();
+            });
+            document.body.appendChild(modal);
+            const closeBtn = modal.querySelector('button[aria-label="Close photo credits"]');
+            if (closeBtn) closeBtn.focus();
+        }
+
+        function closePhotoCredits() {
+            const modal = document.getElementById('photo-credits-modal');
+            if (modal) modal.remove();
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closePhotoCredits();
+        });
+
         // ---------------- ระบบ Authentication & Guard ----------------
         function syncAuthFromStorage() {
             const saved = localStorage.getItem('lekhafong_auth');
@@ -1497,6 +1604,13 @@ const $ = (s, r = document) => r.querySelector(s);
                             `).join('')}
                         </div>
                         ` : ''}
+
+                        ${hasImages && getCameraCreditProduct(p.id) ? `
+                        <div class="flex justify-end">
+                            <button type="button" onclick="openPhotoCredits('${p.id}')" class="text-[11px] font-medium text-[#9E4763] underline decoration-[#D9B5BA] underline-offset-4 hover:decoration-[#9E4763]">
+                                <i class="fa-regular fa-copyright mr-1"></i>Photo credits
+                            </button>
+                        </div>` : ''}
 
                         <div class="flex items-center justify-between flex-wrap gap-2 pt-1 text-xs text-[#6F6262]">
                             <div class="flex gap-2 flex-wrap">

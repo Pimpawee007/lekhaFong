@@ -1,3 +1,10 @@
 node_modules/
 .env
-backend/uploads/
+
+# Runtime uploads stay private. Only the reviewed catalog asset folders are
+# eligible to be included with the academic project.
+backend/uploads/*
+!backend/uploads/camera-catalog/
+!backend/uploads/camera-catalog/**
+!backend/uploads/lens-catalog/
+!backend/uploads/lens-catalog/**
