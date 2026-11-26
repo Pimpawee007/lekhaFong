@@ -63,4 +63,4 @@ The Fujifilm X100VI is a fixed-lens compact camera. It has a permanently attache
 
 ## Verification basis
 
-Each lens name, mount and coverage follows the manufacturer's published product naming and current lens lineup. Sensor coverage follows the manufacturer's stated format. Photographs were verified separately against the exact model name and source description; see `LENS-IMAGE-SOURCES.md`.
+Each lens name, mount and coverage follows the manufacturer's published product naming and current lens lineup. Sensor coverage follows the manufacturer's stated format. Photographs were verified separately against the exact model name and source description; see `sources/IMAGE-SOURCES.md`.

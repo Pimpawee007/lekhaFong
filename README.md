@@ -469,8 +469,8 @@ lekhaFong/
 │   ├── package-lock.json        ← ล็อกเวอร์ชัน Dependency
 │   ├── .env                     ← ไฟล์ตั้งค่าเฉพาะเครื่อง (ผู้ใช้สร้างเอง)
 │   ├── uploads/
-│   │   ├── camera-catalog/      ← รูปกล้องและแมนนิเฟสต์เครดิต
-│   │   ├── lens-catalog/        ← รูปเลนส์และแมนนิเฟสต์เครดิต
+│   │   ├── camera-catalog/      ← รูปกล้อง
+│   │   ├── lens-catalog/        ← รูปเลนส์
 │   │   ├── lighting-catalog/    ← รูปไฟต่อเนื่อง
 │   │   ├── microphone-catalog/  ← รูปไมโครโฟนไร้สาย
 │   │   ├── filter-catalog/      ← รูปฟิลเตอร์
@@ -482,12 +482,7 @@ lekhaFong/
 │   ├── index.html               ← โครงหน้าเว็บหลักเพียงไฟล์เดียว
 │   ├── script.js                ← JavaScript หลัก: Navigation, API, Admin, Rental
 │   ├── style.css                ← CSS ของเว็บไซต์
-│   ├── camera-credits.js        ← เครดิตภาพกล้อง (สร้างจาก manifest)
-│   ├── lens-credits.js          ← เครดิตภาพเลนส์ (สร้างจาก manifest)
-│   ├── accessory-credits.js     ← เครดิตภาพอุปกรณ์เสริม (สร้างจาก manifest)
-│   ├── camera-image-sources.json
-│   ├── lens-image-sources.json
-│   ├── accessory-image-sources.json
+│   ├── image-credits.js         ← เครดิตภาพทั้งแคตตาล็อก (สร้างจาก sources/image-sources.json)
 │   ├── lekhaFongLogo.png        ← โลโก้
 │   ├── banner/                  ← รูปแบนเนอร์หน้าแรก
 │   ├── pic_member/              ← รูปสมาชิกในหน้าทีมงาน
@@ -496,9 +491,10 @@ lekhaFong/
 │   └── node_modules/            ← เกิดหลังรัน npm ci
 │
 ├── lekhafong_production.sql     ← Fresh-install schema + ข้อมูลตัวอย่าง 8 ตาราง
-├── LENS-COMPATIBILITY.md        ← ตารางความเข้ากันได้ของเมาท์เลนส์
-├── LENS-IMAGE-SOURCES.md        ← แหล่งที่มาและลิขสิทธิ์ภาพเลนส์
-├── ACCESSORY-IMAGE-SOURCES.md   ← แหล่งที่มาและลิขสิทธิ์ภาพอุปกรณ์เสริม
+├── sources/
+│   ├── IMAGE-SOURCES.md         ← แหล่งที่มาและลิขสิทธิ์ภาพทั้งแคตตาล็อก
+│   ├── image-sources.json       ← ข้อมูลต้นทางภาพแบบ machine-readable
+│   └── LENS-COMPATIBILITY.md    ← ตารางความเข้ากันได้ของเมาท์เลนส์
 ├── .gitignore                   ← รายการไฟล์ที่ไม่ควรCommit เช่น .env
 └── README.md                    ← เอกสารนี้
 ```
@@ -517,9 +513,9 @@ lekhaFong/
 | `frontend/script.js` | Logic ทั้งหมดของหน้าเว็บ | เปลี่ยนหน้าแบบ JavaScript ไม่มีไฟล์ HTML แยกทุกหน้า |
 | `frontend/style.css` | รูปแบบหน้าตา สีสัน และ Responsive | ไม่ต้องแก้เพื่อติดตั้ง |
 | `lekhafong_production.sql` | สร้างฐานข้อมูล ตาราง และข้อมูลตัวอย่าง 80 รายการ | ใช้สำหรับติดตั้งใหม่เท่านั้น ไม่มี `DROP DATABASE` |
-| `LENS-COMPATIBILITY.md` | ตารางเมาท์เลนส์และกล้องที่รองรับ | ใช้ตรวจสอบความเข้ากันได้ |
-| `LENS-IMAGE-SOURCES.md` | แหล่งที่มาและลิขสิทธิ์ภาพเลนส์ | ต้องคงไว้เมื่อเผยแพร่ภาพ |
-| `ACCESSORY-IMAGE-SOURCES.md` | แหล่งที่มาและลิขสิทธิ์ภาพอุปกรณ์เสริม | ระบุภาพที่ยังไม่มี |
+| `sources/IMAGE-SOURCES.md` | แหล่งที่มาและลิขสิทธิ์ภาพทั้งแคตตาล็อก | ใช้เมื่อเผยแพร่ภาพ |
+| `sources/image-sources.json` | ข้อมูลต้นทางภาพแบบ machine-readable | เป็นแหล่งข้อมูลหลักเพียงชุดเดียว |
+| `sources/LENS-COMPATIBILITY.md` | ตารางเมาท์เลนส์และกล้องที่รองรับ | ใช้ตรวจสอบความเข้ากันได้ |
 
 ### 4.3 ข้อควรเข้าใจเกี่ยวกับการเปลี่ยนหน้า
 
@@ -2043,9 +2039,9 @@ backend/uploads/filter-catalog/      ← รูปฟิลเตอร์ (ย�
 backend/uploads/tripod-catalog/      ← รูปขาตั้ง (ยังไม่มีภาพ)
 ```
 
-ภาพที่ยืนยันและเผยแพร่แล้วรวม **131 ภาพ** ครอบคลุมสินค้า **46 จาก 80 รายการ** (กล้อง 14, เลนส์ 30 และอุปกรณ์เสริม 2) ส่วนอุปกรณ์เสริมอีก 34 รายการยังไม่มีภาพที่ยืนยันรุ่นและลิขสิทธิ์ได้ ระบบจะแสดงไอคอนแทนรูป และรายการที่ยังไม่มีภาพถูกระบุไว้ใน `ACCESSORY-IMAGE-SOURCES.md`
+ภาพที่ยืนยันและเผยแพร่แล้วรวม **131 ภาพ** ครอบคลุมสินค้า **46 จาก 80 รายการ** (กล้อง 14, เลนส์ 30 และอุปกรณ์เสริม 2) ส่วนอุปกรณ์เสริมอีก 34 รายการยังไม่มีภาพที่ยืนยันรุ่นและลิขสิทธิ์ได้ ระบบจะแสดงไอคอนแทนรูป และรายการที่ยังไม่มีภาพถูกระบุไว้ใน `sources/IMAGE-SOURCES.md`
 
-> รายละเอียดแหล่งที่มาและลิขสิทธิ์ของภาพกล้องอยู่ใน `CAMERA-IMAGE-SOURCES.md` ภาพเลนส์อยู่ใน `LENS-IMAGE-SOURCES.md` และภาพอุปกรณ์เสริมอยู่ใน `ACCESSORY-IMAGE-SOURCES.md`
+> รายละเอียดแหล่งที่มาและลิขสิทธิ์ของภาพทั้งแคตตาล็อกอยู่ใน `sources/IMAGE-SOURCES.md` และ `sources/image-sources.json` ซึ่งเป็นแหล่งข้อมูลหลักเพียงชุดเดียว
 
 หากเปิดหน้าเว็บแล้วรูปไม่แสดง ให้ตรวจสอบว่าได้คัดลอกโฟลเดอร์ภาพจากชุดไฟล์ที่ได้รับมาวางใน `backend/uploads/` แล้วหรือยัง จากนั้นกด Refresh
 

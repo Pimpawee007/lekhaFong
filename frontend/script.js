@@ -537,18 +537,14 @@ const $ = (s, r = document) => r.querySelector(s);
             };
         }
 
-        // ---------------- Photo attribution (camera and lens catalog) ----------------
-        // Credits come from the generated camera/lens image-source manifests. The
+        // ---------------- Photo attribution (full catalog) ----------------
+        // Credits come from the generated catalog image-source manifest. The
         // modal never exposes local upload paths; only creator, license and the
         // original Commons file page are shown.
         function getCameraCreditProduct(productId) {
-            const sources = [window.CAMERA_IMAGE_SOURCES, window.LENS_IMAGE_SOURCES, window.ACCESSORY_IMAGE_SOURCES];
-            for (const data of sources) {
-                if (!data || !Array.isArray(data.products)) continue;
-                const product = data.products.find(p => String(p.equipment_id) === String(productId));
-                if (product) return product;
-            }
-            return null;
+            const data = window.IMAGE_SOURCES;
+            if (!data || !Array.isArray(data.products)) return null;
+            return data.products.find(p => String(p.equipment_id) === String(productId)) || null;
         }
 
         function creditEscape(value) {

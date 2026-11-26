@@ -16,4 +16,3 @@ backend/uploads/*
 !backend/uploads/filter-catalog/**
 !backend/uploads/tripod-catalog/
 !backend/uploads/tripod-catalog/**
-!backend/uploads/accessory-image-sources.json
