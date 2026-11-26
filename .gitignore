@@ -8,3 +8,12 @@ backend/uploads/*
 !backend/uploads/camera-catalog/**
 !backend/uploads/lens-catalog/
 !backend/uploads/lens-catalog/**
+!backend/uploads/lighting-catalog/
+!backend/uploads/lighting-catalog/**
+!backend/uploads/microphone-catalog/
+!backend/uploads/microphone-catalog/**
+!backend/uploads/filter-catalog/
+!backend/uploads/filter-catalog/**
+!backend/uploads/tripod-catalog/
+!backend/uploads/tripod-catalog/**
+!backend/uploads/accessory-image-sources.json

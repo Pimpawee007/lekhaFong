@@ -47,6 +47,8 @@ const $ = (s, r = document) => r.querySelector(s);
             ['เลนส์', 'lens'],
             ['ไฟสตูดิโอ', 'bulb'],
             ['ไมค์ & เสียง', 'mic'],
+            ['ฟิลเตอร์', 'lens'],
+            ['ขาตั้งกล้อง', 'stand'],
             ['คอมพิวเตอร์', 'laptop'],
             ['ลำโพง', 'speaker']
         ];
@@ -371,7 +373,13 @@ const $ = (s, r = document) => r.querySelector(s);
             const typeLower = (row.type || '').toLowerCase();
             let catTh = 'อุปกรณ์เสริม';
             let icon = 'bulb';
-            if (typeLower.includes('camera') || typeLower.includes('กล้อง')) {
+            if (typeLower.includes('filter') || typeLower.includes('ฟิลเตอร์')) {
+                catTh = 'ฟิลเตอร์';
+                icon = 'lens';
+            } else if (typeLower.includes('tripod') || typeLower.includes('ขาตั้ง')) {
+                catTh = 'ขาตั้งกล้อง';
+                icon = 'stand';
+            } else if (typeLower.includes('camera') || typeLower.includes('กล้อง')) {
                 catTh = 'กล้อง';
                 icon = typeLower.includes('cinema') ? 'video' : 'camera';
             } else if (typeLower.includes('lens') || typeLower.includes('เลนส์')) {
@@ -534,7 +542,7 @@ const $ = (s, r = document) => r.querySelector(s);
         // modal never exposes local upload paths; only creator, license and the
         // original Commons file page are shown.
         function getCameraCreditProduct(productId) {
-            const sources = [window.CAMERA_IMAGE_SOURCES, window.LENS_IMAGE_SOURCES];
+            const sources = [window.CAMERA_IMAGE_SOURCES, window.LENS_IMAGE_SOURCES, window.ACCESSORY_IMAGE_SOURCES];
             for (const data of sources) {
                 if (!data || !Array.isArray(data.products)) continue;
                 const product = data.products.find(p => String(p.equipment_id) === String(productId));
@@ -1269,9 +1277,9 @@ const $ = (s, r = document) => r.querySelector(s);
 
         const BRANDS = ['Canon', 'Sony', 'Nikon', 'Fujifilm'];
         const CAM_N = [18, 24, 12, 9], LENS_N = [21, 26, 14, 11];
-        const ACCS = [['Flash', 'แฟลช', 'sparkles', 15], ['Microphone', 'ไมโครโฟน', 'mic', 22], ['Stand', 'ขาตั้ง', 'stand', 17]];
+        const ACCS = [['Lighting', 'ไฟสตูดิโอ', 'bulb', 9], ['Microphone', 'ไมค์ & เสียง', 'mic', 9], ['Filter', 'ฟิลเตอร์', 'lens', 9], ['Tripod', 'ขาตั้งกล้อง', 'stand', 9]];
         const brandTile = (name, n, icon, typeIdx = 0) => `<a class="brand" href="#" data-go="search" data-type="${typeIdx}" data-brand="${name}"><div class="br-top"><span class="bi" style="width:64px; height:64px; overflow:hidden; padding:0;">${renderBrandLogo(name, icon)}</span><span class="pill">${n} รายการ</span></div><div class="br-name serif">${name}</div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
-        const accTile = ([n, th, icon, c], i) => `<a class="brand acc t${i}" href="#" data-go="search" data-type="2"><div class="br-top"><span class="bi">${ic(icon)}</span><span class="pill">${c} รายการ</span></div><div><div class="br-name serif">${n}</div><small>${th}</small></div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
+        const accTile = ([n, th, icon, c], i) => `<a class="brand acc t${i}" href="#" data-go="search" data-type="2" data-category="${th}"><div class="br-top"><span class="bi">${ic(icon)}</span><span class="pill">${c} รายการ</span></div><div><div class="br-name serif">${n}</div><small>${th}</small></div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
         const band = (cls, eye, title, type, inner) => {
             const isBrandSlider = (cls === 'b1' || cls === 'b2' || cls === 'b3');
             let headHtml = secHead(eye, title, 'ดูทั้งหมด', type);
@@ -3100,6 +3108,7 @@ const $ = (s, r = document) => r.querySelector(s);
                     ? (go.dataset.type === undefined ? -1 : +go.dataset.type)
                     : state.type;
                 state.filters.brand = (targetPage === 'search' && go.dataset.brand) ? go.dataset.brand : 'ทุกยี่ห้อ';
+                state.filters.category = (targetPage === 'search' && go.dataset.category) ? go.dataset.category : '';
 
                 const clickedItem = go.dataset.item ?? go.dataset.id;
                 if (targetPage === 'detail' && clickedItem !== undefined) {
