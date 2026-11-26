@@ -106,6 +106,7 @@ const $ = (s, r = document) => r.querySelector(s);
         const TYPES = ['กล้อง', 'เลนส์', 'อุปกรณ์เสริม'];
         const typeOf = p => p.c === 'กล้อง' ? 0 : p.c === 'เลนส์' ? 1 : 2;
         const PAGE_VARIANT = { home: 'a', search: 'a', terms: 'd', team: 'd', detail: 'd', admin: 'd' };
+        const DEFAULT_FILTERS = { keyword: '', maxPrice: 3000, brand: 'ทุกยี่ห้อ', category: '', onlyAvailable: false };
 
         // สถานะปัจจุบันของแอปพลิเคชัน
         const state = {
@@ -115,6 +116,7 @@ const $ = (s, r = document) => r.querySelector(s);
             type: -1,
             isAdmin: false,
             currentUser: null,
+            advOpen:false,
             filters: { keyword: '', pickupDate: '', returnDate: '', maxPrice: 50000, brand: 'ทุกยี่ห้อ' }
         };
 
@@ -122,12 +124,12 @@ const $ = (s, r = document) => r.querySelector(s);
         2. MYSQL & BACKEND API PLACEHOLDERS (เว้นจุดเชื่อมต่อ Database MySQL)
         หมายเหตุ: เปลี่ยน API_BASE_URL ให้ตรงกับ Backend Server (Node.js / PHP / Python)
         ============================================================================ */
-        const API_BASE_URL = 'http://localhost:3001/api';
+        const API_BASE_URL = 'http://localhost:3031/api';
 
         let adminUsersCache = [];
         let adminProductsCache = [];
         let adminListCache = [];
-        const BACKEND_ORIGIN = 'http://localhost:3001';
+        const BACKEND_ORIGIN = 'http://localhost:3031';
         let equipmentTypesCache = [];
         let pendingRentalDraft = null;
 
@@ -846,8 +848,11 @@ const $ = (s, r = document) => r.querySelector(s);
                 : `<button id="nav-admin-link" type="button" onclick="goToPage('admin')" class="btn btn-ink btn-sm hidden"><i class="fa-solid fa-shield-halved"></i> แอดมิน</button>`;
 
             const loginBtnHtml = state.isAdmin
-                ? ``
-                : `<button id="nav-login-btn" type="button" class="btn btn-accent" onclick="toggleModal('login-modal')">${ic('user')}${state.currentUser ? state.currentUser : 'เข้าสู่ระบบ'}</button>`;
+                ? `<button type="button" class="btn btn-sm" style="border:1px solid #8c3b55; background:#fff; color:#8c3b55;" onclick="logoutUser()">ออกจากระบบ</button>`
+                : state.currentUser
+                    ? `<span class="btn btn-accent" style="cursor:default;">${ic('user')}${state.currentUser}</span>
+                    <button type="button" class="btn btn-sm" style="border:1px solid #8c3b55; background:#fff; color:#8c3b55;" onclick="logoutUser()">ออกจากระบบ</button>`
+                    : `<button id="nav-login-btn" type="button" class="btn btn-accent" onclick="toggleModal('login-modal')">${ic('user')}เข้าสู่ระบบ</button>`;
 
             return `
             <!-- ==================== NAVBAR ==================== -->
@@ -868,48 +873,60 @@ const $ = (s, r = document) => r.querySelector(s);
             </header>`;
         }
 
+        function logoutUser() {
+            state.currentUser = null;
+            state.user = null;
+            state.isAdmin = false;
+            localStorage.clear();
+            sessionStorage.clear();
+            if (state.p === 'admin') state.p = 'home';
+            render();
+        }
+
         /* ---------- [COMPONENT 3] SEARCH BAR & ADVANCE SEARCH PANEL (ช่องค้นหา + ตัวกรองขั้นสูง) ---------- */
         function advPanel(open = false) {
+            const f = state.filters;
+            const brands = ['ทุกยี่ห้อ', ...new Set(P.map(x => x.brand).filter(Boolean))].sort();
+
             return `
-            <!-- แผงตัวกรองขั้นสูง (Advance Search Panel - ไม่เก็บลง History Stack) -->
-            <div class="adv-panel" ${open ? '' : 'hidden'}>
+            <div class="adv-panel" ${state.advOpen ? '' : 'hidden'}>
                 <div class="adv-grid">
                     <div>
                         <span class="t">หมวดหมู่</span>
-                        <div class="chips">${CATS.map((c, i) => `<button type="button" class="chip ${i === 0 ? 'on' : ''}" data-chip>${c[0]}</button>`).join('')}</div>
+                        <div class="chips">${CATS.map(c => `<button type="button" class="chip ${f.category === c[0] ? 'on' : ''}" onclick="setFilter('category', '${c[0]}')">${c[0]}</button>`).join('')}</div>
                     </div>
                     <div>
                         <span class="t">ราคาต่อวัน</span>
                         <div class="range-row">
-                            <input id="adv-max-price" type="range" min="0" max="3000" value="1800" aria-label="ราคาสูงสุดต่อวัน">
-                            <span class="range-val">฿1,800</span>
+                            <input type="range" min="0" max="3000" step="50" value="${f.maxPrice}" oninput="state.filters.maxPrice=+this.value; this.nextElementSibling.textContent='฿'+(+this.value).toLocaleString()">
+                            <span class="range-val">฿${f.maxPrice.toLocaleString()}</span>
                         </div>
                     </div>
                     <div>
                         <span class="t">ยี่ห้อ</span>
-                        <select id="adv-brand" class="field" aria-label="ยี่ห้อ">
-                            <option value="ทุกยี่ห้อ">ทุกยี่ห้อ</option>
-                            <option value="Sony">Sony</option>
-                            <option value="Canon">Canon</option>
-                            <option value="DJI">DJI</option>
-                            <option value="Aputure">Aputure</option>
+                        <select class="field" onchange="state.filters.brand=this.value">
+                            ${brands.map(b => `<option value="${b}" ${f.brand === b ? 'selected' : ''}>${b}</option>`).join('')}
                         </select>
                     </div>
                     <div>
                         <span class="t">สถานะ</span>
                         <div class="checks">
-                            <label><input type="checkbox" checked>ว่างพร้อมเช่า</label>
-                            <label><input type="checkbox">มีโปรโมชั่น</label>
-                            <label><input type="checkbox">มาใหม่</label>
+                            <label><input type="checkbox" ${f.onlyAvailable ? 'checked' : ''} onchange="state.filters.onlyAvailable=this.checked">ว่างพร้อมเช่า</label>
                         </div>
                     </div>
                 </div>
                 <div class="adv-actions">
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="resetAdvanceFilters()">ล้างค่า</button>
-                    <button type="button" class="btn btn-accent btn-sm" onclick="applyAdvanceSearch()">ใช้ตัวกรอง</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="state.filters={...DEFAULT_FILTERS}; state.type=-1; render()">ล้างค่า</button>
+                    <button type="button" class="btn btn-accent btn-sm" onclick="goToPage('search', {type: -1})">ใช้ตัวกรอง</button>
                 </div>
             </div>`;
         }
+
+        // ฟังก์ชันสลับการเลือกหมวดหมู่ (กดซ้ำเพื่อยกเลิก)
+        const setFilter = (key, val) => {
+            state.filters[key] = state.filters[key] === val ? '' : val;
+            render();
+        };
 
         window.submitSearchBar = function(e) {
             if (e) e.preventDefault();
@@ -943,15 +960,19 @@ const $ = (s, r = document) => r.querySelector(s);
                     </label>
                     <button type="submit" class="btn btn-accent sb-go">${ic('search')}ค้นหา</button>
                 </form>
-                <button type="button" class="adv-btn" data-adv aria-expanded="false">${ic('sliders')}ค้นหาขั้นสูง</button>
+                <button type="button" class="adv-btn" onclick="state.advOpen = !state.advOpen; render()" aria-expanded="${state.advOpen}">${ic('sliders')}ค้นหาขั้นสูง</button>
             </div>`;
         }
 
         /* ---------- [COMPONENT 4] PRODUCT CARD (การ์ดแสดงสินค้าแต่ละชิ้น) ---------- */
         const card = (p, i, cls = '') => `
             <article class="card ${cls}" data-detail="${p.id}">
-                <div class="card-img t${i % 3}">
-                    ${ic(p.i)}
+                <div class="card-img t${i % 3}" style="overflow:hidden;">
+                    ${p.main_image
+                        ? `<img src="${resolveImageUrl(p.main_image)}" alt="${p.n}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+                            <span style="display:none;">${ic(p.i)}</span>`
+                        : ic(p.i)
+                    }
                     ${renderStatusPill(p)}
                     <button type="button" class="fav" aria-label="บันทึก ${p.n}" onclick="event.stopPropagation(); this.classList.toggle('on'); apiToggleFavorite('${p.id}')">${ic('heart')}</button>
                 </div>
@@ -971,26 +992,36 @@ const $ = (s, r = document) => r.querySelector(s);
         const secHead = (eye, title, link, type) => `<div class="sec-head"><div>${eyebrow(eye)}<h2 class="serif">${title}</h2></div>${link ? `<a class="link-arrow" href="#" data-go="search"${type === undefined ? '' : ` data-type="${type}"`}>${link}${ic('arrow')}</a>` : ''}</div>`;
         const pageHead = (eye, title, sub) => `<div class="phead">${eyebrow(eye)}<h1 class="serif">${title}</h1><p>${sub}</p></div>`;
 
+        const BANNERS = [
+            { img: 'banner/1.png', label: 'Lumix S5IIX', kw: 'S5' },
+            { img: 'banner/2.png', label: 'Canon R6 II', kw: 'R6' },
+            { img: 'banner/3.png', label: 'Sony ZV-E10 II', kw: 'ZV-E10' }
+        ];
+
         function heroHome() {
-            const s = SL[state.slide];
+            const b = BANNERS[state.slide % BANNERS.length];
             return `
-            <!-- ==================== HERO BANNER (ขยายเกือบเต็มจอ) ==================== -->
-            <section class="hero">
-                <div class="hero-wrap">
-                    <div class="banner">
-                        <div class="banner-inner">
-                            <div class="banner-copy">
-                                ${eyebrow(s.tag)}
-                                <h1 class="serif">${s.title}</h1>
-                                <p>${s.sub}</p>
-                                <a class="btn btn-accent" href="#" data-go="search">${s.cta}${ic('arrow')}</a>
-                                ${tabs()}
-                            </div>
-                        </div>
-                    </div>
+            <div class="wrap">
+                <div class="live-banner" onmouseenter="clearInterval(window._bTimer)" onmouseleave="startBannerTimer()">
+                    <img src="${b.img}" alt="${b.label}" onclick="state.filters.keyword='${b.kw}'; goToPage('search', {type: -1})">
                 </div>
-            </section>`;
+            </div>`;
         }
+
+        function startBannerTimer() {
+            clearInterval(window._bTimer);
+            window._bTimer = setInterval(() => {
+                const img = document.querySelector('.live-banner img');
+                if (!img) return; // ถ้าไม่ได้อยู่หน้าแรก (ไม่มีแบนเนอร์) ให้ข้ามไป
+                
+                state.slide = (state.slide + 1) % BANNERS.length;
+                const b = BANNERS[state.slide];
+                img.src = b.img;
+                img.alt = b.label;
+                img.onclick = () => { state.filters.keyword = b.kw; goToPage('search', { type: -1 }); };
+            }, 4000);
+        }
+        startBannerTimer();
 
         const BRANDS = ['Canon', 'Sony', 'Nikon', 'Fujifilm'];
         const CAM_N = [18, 24, 12, 9], LENS_N = [21, 26, 14, 11];
@@ -1102,12 +1133,13 @@ const $ = (s, r = document) => r.querySelector(s);
             const kw = state.filters.keyword.trim().toLowerCase();
             const list = P.filter(p => {
                 const matchType = state.type < 0 || typeOf(p) === state.type;
+                const matchCategory = !state.filters.category || p.c === state.filters.category;
                 const matchKw = !kw || p.n.toLowerCase().includes(kw) || p.c.toLowerCase().includes(kw) || p.s.toLowerCase().includes(kw);
                 const matchPrice = p.p <= state.filters.maxPrice;
                 const matchBrand = state.filters.brand === 'ทุกยี่ห้อ' || String(p.brand || '').trim().toLowerCase() === String(state.filters.brand || '').trim().toLowerCase();
-                return matchType && matchKw && matchPrice && matchBrand;
+                const matchStatus = !state.filters.onlyAvailable || (p.status === 'Available' && Number(p.stock) > 0);
+                return matchType && matchCategory && matchKw && matchPrice && matchBrand && matchStatus;
             });
-
             const bar = `<div class="res-bar"><div class="count serif">พบ ${list.length} รายการ</div><label><span class="sr-only">เรียงตาม</span><select class="field"><option>เรียง: ยอดนิยม</option><option>ราคาต่ำ → สูง</option><option>ราคาสูง → ต่ำ</option><option>มาใหม่</option></select></label></div>`;
             const pager = `<div class="pager"><button type="button" class="on">1</button><button type="button">2</button><button type="button">3</button><button type="button" aria-label="ถัดไป">${ic('arrow')}</button></div>`;
 
@@ -1232,25 +1264,6 @@ const $ = (s, r = document) => r.querySelector(s);
             const todayStr = new Date().toISOString().split('T')[0];
 
             return `
-            <style>
-                .pd-detail-grid {
-                    display: grid;
-                    grid-template-columns: 1fr;
-                    gap: 2rem;
-                    align-items: start;
-                }
-                @media (min-width: 960px) {
-                    .pd-detail-grid {
-                        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-                        gap: 2.5rem;
-                    }
-                }
-                .pd-detail-grid .pd-real-img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-            </style>
             <main class="wrap py-8">
                 <div class="text-xs text-[#6F6262] mb-6 flex items-center gap-2 flex-wrap">
                     <button type="button" onclick="goToPage('home')" class="hover:text-[#BF4B72]">Home</button>
@@ -1694,7 +1707,7 @@ const $ = (s, r = document) => r.querySelector(s);
                                                 <input type="text" id="adm-lname" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
                                             </div>
                                             <div>
-                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Password (ตัวเลขเท่านั้น) *</label>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Password*</label>
                                                 <input type="password" id="adm-password" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm" placeholder="เว้นว่างหากไม่เปลี่ยนรหัส (ตอนแก้ไข)">
                                             </div>
                                             <div>
@@ -2085,6 +2098,24 @@ const $ = (s, r = document) => r.querySelector(s);
                 pendingRentalDraft = null;
                 openRentalPopup(draft.productId, draft.startDate, draft.returnDate, draft.pickupMethod);
             }
+        }
+
+        // จัดการการกด Submit ฟอร์ม Sign up
+        async function handleSignupSubmit(event) {
+            event.preventDefault();
+            const password = document.getElementById('su-password')?.value.trim() || '';
+            const payload = {
+                first_name: document.getElementById('su-first')?.value.trim() || '',
+                last_name: document.getElementById('su-last')?.value.trim() || '',
+                email: document.getElementById('su-email')?.value.trim() || '',
+                phone: document.getElementById('su-phone')?.value.trim() || '',
+                address: document.getElementById('su-address')?.value.trim() || '',
+                username: document.getElementById('su-username')?.value.trim() || '',
+                password: password
+            };
+
+            await apiRegisterUser(payload);
+            event.target.reset();
         }
 
         // ---------------- 2. ระบบ Popup อัปโหลดรูปภาพ (1 Main + 4 Detail) ----------------
@@ -2723,19 +2754,6 @@ const $ = (s, r = document) => r.querySelector(s);
                 goToPage('detail', { item: det.dataset.detail });
                 return;
             }
-            // เปิด-ปิดแผงค้นหาขั้นสูง (วางต่อตรงนี้ได้เลย)
-            const advBtn = t.closest('[data-adv]');
-            if (advBtn) {
-                const wrap = advBtn.closest('.searchwrap') || document;
-                const panel = wrap.querySelector('.adv, [data-adv-panel]') || advBtn.closest('.sb-row')?.nextElementSibling;
-                if (panel) {
-                    const isOpen = panel.classList.toggle('open');
-                    advBtn.setAttribute('aria-expanded', String(isOpen));
-                    panel.hidden = !isOpen;
-                    panel.style.display = isOpen ? 'block' : '';
-                }
-                return;
-            }
 
             // สลับสไลด์แบนเนอร์หน้าแรก
             const sl = t.closest('[data-slide]');
@@ -2745,19 +2763,14 @@ const $ = (s, r = document) => r.querySelector(s);
                 return;
             }
 
-            // เปิด/ปิดแผงค้นหาขั้นสูง (ไม่เก็บลง History Stack)
-            const adv = t.closest('[data-adv]');
-            if (adv) {
-                const panel = adv.closest('.searchwrap').querySelector('.adv-panel');
-                panel.hidden = !panel.hidden;
-                adv.setAttribute('aria-expanded', String(!panel.hidden));
-                adv.classList.toggle('open', !panel.hidden);
+            // เลือก Chip หมวดหมู่ใน Advance Search (เลือกได้ 1 หมวด หรือกดซ้ำเพื่อยกเลิก)
+            const chip = t.closest('[data-chip]');
+            if (chip) {
+                const wasOn = chip.classList.contains('on');
+                chip.parentElement.querySelectorAll('[data-chip]').forEach(c => c.classList.remove('on'));
+                if (!wasOn) chip.classList.add('on');
                 return;
             }
-
-            // เลือก Chip หมวดหมู่ใน Advance Search
-            const chip = t.closest('[data-chip]');
-            if (chip) chip.classList.toggle('on');
         });
 
         // อัปเดตตัวเลขราคาเมื่อเลื่อน Slider ใน Advance Search

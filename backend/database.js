@@ -8,7 +8,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 app.use(cors({
-    origin: 'http://localhost:3031',
+    origin: 'http://localhost:3030',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
@@ -116,10 +116,9 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'ไม่พบบัญชีผู้ใช้งานนี้ในระบบ' });
         }
 
-        const numericPassword = Number(password);
         const [accounts] = await db.query(
             'SELECT * FROM USER_ACCOUNT WHERE account_id = ? AND password = ?',
-            [accountId, numericPassword]
+            [accountId, String(password)]
         );
 
         const nextLoginId = await getNextId(db, 'LOGIN', 'login_id');
@@ -181,8 +180,8 @@ app.post('/api/auth/register', async (req, res) => {
         const nextAccountId = await getNextId(conn, 'USER_ACCOUNT', 'account_id');
         const nextCustomerId = await getNextId(conn, 'CUSTOMER', 'customer_id');
         const finalUsername = username || email.split('@')[0];
-        const finalPassword = Number(password) || 123456;
-        const cleanPhone = Number(String(phone || '0').replace(/\D/g, '')) || 0;
+        const finalPassword = String(password) || 123456;
+        const cleanPhone = String(String(phone || '0').replace(/\D/g, '')) || 0;
 
         await conn.query(
             'INSERT INTO USER_ACCOUNT (account_id, username, password, role) VALUES (?, ?, ?, ?)',
@@ -236,7 +235,7 @@ app.put('/api/users/:accountId', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Username นี้มีผู้ใช้งานแล้ว' });
         }
 
-        const cleanPhone = Number(String(phone || '0').replace(/\D/g, '')) || 0;
+        const cleanPhone = String(String(phone || '0').replace(/\D/g, '')) || 0;
         await conn.query('UPDATE USER_ACCOUNT SET username = ? WHERE account_id = ?', [username, accountId]);
         await conn.query(
             'UPDATE CUSTOMER SET email = ?, first_name = ?, last_name = ?, phone = ?, address = ? WHERE account_id = ?',
@@ -508,9 +507,6 @@ app.post('/api/admins', async (req, res) => {
     if (!username || !password || !email || !first_name) {
         return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน' });
     }
-    if (!/^\d+$/.test(String(password))) {
-        return res.status(400).json({ success: false, message: 'รหัสผ่านต้องเป็นตัวเลขเท่านั้น' });
-    }
     const conn = await db.getConnection();
     try {
         await conn.beginTransaction();
@@ -522,7 +518,7 @@ app.post('/api/admins', async (req, res) => {
         const nextAccountId = await getNextId(conn, 'USER_ACCOUNT', 'account_id');
         const nextAdminId = await getNextId(conn, 'ADMIN', 'admin_id');
 
-        await conn.query('INSERT INTO USER_ACCOUNT (account_id, username, password, role) VALUES (?, ?, ?, ?)', [nextAccountId, username, Number(password), 'Admin']);
+        await conn.query('INSERT INTO USER_ACCOUNT (account_id, username, password, role) VALUES (?, ?, ?, ?)', [nextAccountId, username, String(password), 'Admin']);
         await conn.query('INSERT INTO ADMIN (admin_id, account_id, first_name, last_name, email, address) VALUES (?, ?, ?, ?, ?, ?)', [nextAdminId, nextAccountId, first_name, last_name || '', email, address || '']);
 
         await conn.commit();
@@ -542,10 +538,6 @@ app.put('/api/admins/:accountId', async (req, res) => {
     try {
         await conn.beginTransaction();
         if (password) {
-            if (!/^\d+$/.test(String(password))) {
-                await conn.rollback();
-                return res.status(400).json({ success: false, message: 'รหัสผ่านใหม่ต้องเป็นตัวเลขเท่านั้น' });
-            }
             await conn.query('UPDATE USER_ACCOUNT SET username = ?, password = ? WHERE account_id = ?', [username, Number(password), accountId]);
         } else {
             await conn.query('UPDATE USER_ACCOUNT SET username = ? WHERE account_id = ?', [username, accountId]);
