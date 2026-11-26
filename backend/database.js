@@ -67,12 +67,56 @@ const db = mysql.createPool({
 });
 
 (async () => {
+    let conn;
     try {
-        const conn = await db.getConnection();
+        conn = await db.getConnection();
         console.log('Connected to MySQL database:', process.env.DB_NAME || 'lekhafong_production');
-        conn.release();
+
+        // Read-only compatibility check. This never alters the database; it
+        // only warns when a database created from the older schema still has
+        // numeric password/phone columns. See migrations/.
+        try {
+            const [columns] = await conn.query(`
+                SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND (
+                    (UPPER(TABLE_NAME) = 'USER_ACCOUNT' AND UPPER(COLUMN_NAME) = 'PASSWORD')
+                    OR
+                    (UPPER(TABLE_NAME) = 'CUSTOMER' AND UPPER(COLUMN_NAME) = 'PHONE')
+                  )
+            `);
+            const characterTypes = new Set(['char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext']);
+            const found = new Map(columns.map(column => [
+                `${String(column.TABLE_NAME).toUpperCase()}.${String(column.COLUMN_NAME).toUpperCase()}`,
+                column
+            ]));
+            const expected = [
+                ['USER_ACCOUNT.PASSWORD', 'varchar(255)'],
+                ['CUSTOMER.PHONE', 'varchar(15)']
+            ];
+            const mismatches = expected.flatMap(([key, expectedType]) => {
+                const column = found.get(key);
+                if (!column || characterTypes.has(String(column.DATA_TYPE).toLowerCase())) {
+                    return [];
+                }
+                return [`${column.TABLE_NAME}.${column.COLUMN_NAME} is ${column.COLUMN_TYPE}; expected ${expectedType}`];
+            });
+
+            if (mismatches.length > 0) {
+                console.warn('Database schema compatibility warning:');
+                mismatches.forEach(message => console.warn('  - ' + message));
+                console.warn('  Registration with text passwords or Thai phone numbers can fail with ER_TRUNCATED_WRONG_VALUE_FOR_FIELD.');
+                console.warn('  Back up the database, then apply migrations/2026-11-26-align-registration-schema.sql manually.');
+                console.warn('  Do NOT rerun lekhafong_production.sql; it starts with DROP DATABASE.');
+            }
+        } catch (schemaErr) {
+            console.warn('Schema compatibility check skipped:', schemaErr.code || schemaErr.message);
+        }
     } catch (err) {
         console.error('MySQL Connection Error:', err.message);
+    } finally {
+        if (conn) conn.release();
     }
 })();
 
@@ -115,6 +159,34 @@ function normalizeDetailImagesInput(value) {
 
 function isValidEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+// Extract only the column name from a MySQL error message. The full message
+// can contain user-supplied values, so it must never be logged.
+function extractErrorColumn(sqlMessage) {
+    const text = String(sqlMessage || '');
+    const backticked = [...text.matchAll(/`([^`]+)`/g)].map(match => match[1]);
+    if (backticked.length > 0) {
+        return backticked[backticked.length - 1];
+    }
+    const quoted = /for column '([^']+)'/i.exec(text);
+    return quoted ? quoted[1] : null;
+}
+
+// Development diagnostics: operation, MySQL code, SQLSTATE and column only.
+// Never log SQL parameter arrays, passwords, names, emails, phones or addresses.
+function logRegistrationFailure(err, operation) {
+    if (process.env.NODE_ENV === 'production') {
+        console.error('Register Error:', err.code || 'UNKNOWN_REGISTRATION_ERROR');
+        return;
+    }
+    console.error('Register Error:', {
+        operation,
+        code: err.code || null,
+        errno: err.errno || null,
+        sqlState: err.sqlState || null,
+        column: extractErrorColumn(err.sqlMessage)
+    });
 }
 
 // ============================================================================
@@ -254,6 +326,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     let lockAcquired = false;
+    let registrationStep = 'acquire-lock';
     const conn = await db.getConnection();
     try {
         // Serialise registrations so the MAX(id)+1 allocation and the
@@ -265,8 +338,10 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(503).json({ success: false, message: 'ระบบกำลังดำเนินการสมัครสมาชิกอื่น กรุณาลองใหม่อีกครั้ง' });
         }
 
+        registrationStep = 'begin-transaction';
         await conn.beginTransaction();
 
+        registrationStep = 'check-username';
         const [dupUser] = await conn.query(
             'SELECT account_id FROM USER_ACCOUNT WHERE username = ? LIMIT 1',
             [finalUsername]
@@ -276,6 +351,7 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้งาน (Username) นี้ถูกใช้งานแล้ว' });
         }
 
+        registrationStep = 'check-email';
         const [dupCustomerEmail] = await conn.query(
             'SELECT customer_id FROM CUSTOMER WHERE email = ? LIMIT 1',
             [emailStr]
@@ -289,23 +365,28 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(409).json({ success: false, message: 'อีเมลนี้ถูกใช้งานแล้ว' });
         }
 
+        registrationStep = 'allocate-account-id';
         const nextAccountId = await getNextId(conn, 'USER_ACCOUNT', 'account_id');
+        registrationStep = 'allocate-customer-id';
         const nextCustomerId = await getNextId(conn, 'CUSTOMER', 'customer_id');
 
+        registrationStep = 'insert-user-account';
         await conn.query(
             'INSERT INTO USER_ACCOUNT (account_id, username, password, role) VALUES (?, ?, ?, ?)',
             [nextAccountId, finalUsername, finalPassword, 'Customer']
         );
+        registrationStep = 'insert-customer';
         await conn.query(
             'INSERT INTO CUSTOMER (customer_id, account_id, first_name, last_name, email, address, phone) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [nextCustomerId, nextAccountId, firstNameStr, lastNameStr, emailStr, String(address || ''), cleanPhone]
         );
 
+        registrationStep = 'commit';
         await conn.commit();
         res.json({ success: true, message: 'สมัครสมาชิกสำเร็จ' });
     } catch (err) {
         try { await conn.rollback(); } catch { /* no active transaction */ }
-        console.error('Register Error:', err.code || err.message);
+        logRegistrationFailure(err, registrationStep);
         if (err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้งานหรืออีเมลนี้ถูกใช้งานแล้ว' });
         }
