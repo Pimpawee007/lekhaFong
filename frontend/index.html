@@ -80,7 +80,7 @@
                             <input type="checkbox" name="remember" class="size-4 accent-[#4A4A4A]">
                             Keep me signed in
                         </label>
-                        <a href="#" onclick="event.preventDefault()" class="underline decoration-[#D9B5BA] underline-offset-4 hover:decoration-[#4A4A4A]">Forgot password?</a>
+                        <a href="#" onclick="event.preventDefault(); showForgotPasswordHelp()" class="underline decoration-[#D9B5BA] underline-offset-4 hover:decoration-[#4A4A4A]">Forgot password?</a>
                     </div>
 
                     <div class="mt-2 flex flex-col gap-4">
@@ -140,8 +140,9 @@
                             </div>
                             <div class="flex flex-col gap-1.5">
                                 <label for="su-phone" class="text-sm font-medium">Phone</label>
-                                <input id="su-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel"
-                                    placeholder="08x-xxx-xxxx" pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}" maxlength="12"
+                                <input id="su-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required
+                                    placeholder="0812345678 หรือ 081-234-5678" pattern="0[689][0-9]-?[0-9]{3}-?[0-9]{4}" maxlength="12"
+                                    title="กรอกเบอร์มือถือ 10 หลัก เช่น 0812345678 หรือ 081-234-5678"
                                     class="w-full rounded-md border border-[#D9B5BA] bg-white/70 px-3 py-2.5 text-[15px] placeholder:text-[#B39A9E] transition-colors hover:border-[#C99EA5] focus:border-[#4A4A4A] focus:bg-white focus:outline-none">
                             </div>
                         </div>

@@ -49,8 +49,18 @@ const upload = multer({
 // ============================================================================
 // 1. DATABASE CONNECTION POOL
 // ============================================================================
+const dbPortValue = process.env.DB_PORT;
+const dbPort = (dbPortValue === undefined || String(dbPortValue).trim() === '')
+    ? 3306
+    : Number(dbPortValue);
+if (!Number.isInteger(dbPort) || dbPort < 1 || dbPort > 65535) {
+    console.error(`Invalid DB_PORT value "${dbPortValue}": DB_PORT must be an integer between 1 and 65535.`);
+    process.exit(1);
+}
+
 const db = mysql.createPool({
     host: process.env.DB_HOST,
+    port: dbPort,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
@@ -69,6 +79,42 @@ const db = mysql.createPool({
 async function getNextId(connection, table, idColumn) {
     const [rows] = await connection.query(`SELECT COALESCE(MAX(${idColumn}), 0) + 1 AS nextId FROM ${table}`);
     return rows[0].nextId;
+}
+
+// Accept both 0812345678 and 081-234-5678. Returns a normalised 10-digit
+// string (leading zero preserved) or null when the value is not a Thai mobile.
+function normalizeThaiPhone(value) {
+    if (value === undefined || value === null) return null;
+    const raw = String(value).trim();
+    // Only digits, spaces and hyphens are allowed; letters/symbols are rejected.
+    if (!raw || !/^[0-9\s-]+$/.test(raw)) return null;
+    const digits = raw.replace(/[^0-9]/g, '');
+    if (!/^0[689][0-9]{8}$/.test(digits)) return null;
+    return digits;
+}
+
+// Accept an array or a JSON string for detail_images and keep at most 4
+// non-empty URL/path entries. Returns null when the value is not provided.
+function normalizeDetailImagesInput(value) {
+    if (value === undefined || value === null) return null;
+    let list = value;
+    if (typeof value === 'string') {
+        if (!value.trim()) return [];
+        try {
+            list = JSON.parse(value);
+        } catch {
+            return [];
+        }
+    }
+    if (!Array.isArray(list)) return [];
+    return list
+        .filter(item => typeof item === 'string' && item.trim())
+        .map(item => item.trim())
+        .slice(0, 4);
+}
+
+function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
 // ============================================================================
@@ -167,21 +213,84 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/register', async (req, res) => {
-    const { first_name, last_name, email, phone, address, username, password } = req.body;
+    const { first_name, last_name, email, phone, address, username, password } = req.body || {};
+
+    // ---- Validation (never fall back to a default password) ----
+    if (password === undefined || password === null || String(password).length === 0) {
+        return res.status(400).json({ success: false, message: 'กรุณากำหนดรหัสผ่านก่อนสมัครสมาชิก' });
+    }
+    const finalPassword = String(password);
+    if (!finalPassword.trim()) {
+        return res.status(400).json({ success: false, message: 'รหัสผ่านต้องไม่เป็นช่องว่าง' });
+    }
+    if (finalPassword.length > 255) {
+        return res.status(400).json({ success: false, message: 'รหัสผ่านยาวเกินไป (สูงสุด 255 ตัวอักษร)' });
+    }
+
+    const emailStr = String(email || '').trim();
+    if (!emailStr || !isValidEmail(emailStr)) {
+        return res.status(400).json({ success: false, message: 'กรุณากรอกอีเมลให้ถูกต้อง' });
+    }
+
+    const firstNameStr = String(first_name || '').trim();
+    const lastNameStr = String(last_name || '').trim();
+    if (!firstNameStr || !lastNameStr) {
+        return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อและนามสกุลให้ครบถ้วน' });
+    }
+
+    const finalUsername = (typeof username === 'string' && username.trim())
+        ? username.trim()
+        : emailStr.split('@')[0];
+    if (!finalUsername) {
+        return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อผู้ใช้งาน (Username)' });
+    }
+
+    const cleanPhone = normalizeThaiPhone(phone);
+    if (!cleanPhone) {
+        return res.status(400).json({
+            success: false,
+            message: 'กรุณากรอกเบอร์โทรศัพท์มือถือให้ถูกต้อง เช่น 0812345678 หรือ 081-234-5678'
+        });
+    }
+
+    let lockAcquired = false;
     const conn = await db.getConnection();
     try {
+        // Serialise registrations so the MAX(id)+1 allocation and the
+        // duplicate checks cannot race within this single-process API.
+        // GET_LOCK also works if more than one API process is running.
+        const [lockRows] = await conn.query("SELECT GET_LOCK('lekhafong_register', 10) AS acquired");
+        lockAcquired = Number(lockRows[0]?.acquired) === 1;
+        if (!lockAcquired) {
+            return res.status(503).json({ success: false, message: 'ระบบกำลังดำเนินการสมัครสมาชิกอื่น กรุณาลองใหม่อีกครั้ง' });
+        }
+
         await conn.beginTransaction();
-        const [dupEmail] = await conn.query('SELECT email FROM CUSTOMER WHERE email = ?', [email]);
-        if (dupEmail.length > 0) {
+
+        const [dupUser] = await conn.query(
+            'SELECT account_id FROM USER_ACCOUNT WHERE username = ? LIMIT 1',
+            [finalUsername]
+        );
+        if (dupUser.length > 0) {
             await conn.rollback();
-            return res.status(400).json({ success: false, message: 'อีเมลนี้ถูกใช้งานแล้ว' });
+            return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้งาน (Username) นี้ถูกใช้งานแล้ว' });
+        }
+
+        const [dupCustomerEmail] = await conn.query(
+            'SELECT customer_id FROM CUSTOMER WHERE email = ? LIMIT 1',
+            [emailStr]
+        );
+        const [dupAdminEmail] = await conn.query(
+            'SELECT admin_id FROM ADMIN WHERE email = ? LIMIT 1',
+            [emailStr]
+        );
+        if (dupCustomerEmail.length > 0 || dupAdminEmail.length > 0) {
+            await conn.rollback();
+            return res.status(409).json({ success: false, message: 'อีเมลนี้ถูกใช้งานแล้ว' });
         }
 
         const nextAccountId = await getNextId(conn, 'USER_ACCOUNT', 'account_id');
         const nextCustomerId = await getNextId(conn, 'CUSTOMER', 'customer_id');
-        const finalUsername = username || email.split('@')[0];
-        const finalPassword = String(password) || 123456;
-        const cleanPhone = String(String(phone || '0').replace(/\D/g, '')) || 0;
 
         await conn.query(
             'INSERT INTO USER_ACCOUNT (account_id, username, password, role) VALUES (?, ?, ?, ?)',
@@ -189,15 +298,25 @@ app.post('/api/auth/register', async (req, res) => {
         );
         await conn.query(
             'INSERT INTO CUSTOMER (customer_id, account_id, first_name, last_name, email, address, phone) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [nextCustomerId, nextAccountId, first_name, last_name, email, address || '', cleanPhone]
+            [nextCustomerId, nextAccountId, firstNameStr, lastNameStr, emailStr, String(address || ''), cleanPhone]
         );
 
         await conn.commit();
         res.json({ success: true, message: 'สมัครสมาชิกสำเร็จ' });
     } catch (err) {
-        await conn.rollback();
-        res.status(500).json({ success: false, message: 'ไม่สามารถสมัครสมาชิกได้: ' + err.message });
+        try { await conn.rollback(); } catch { /* no active transaction */ }
+        console.error('Register Error:', err.code || err.message);
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ success: false, message: 'ชื่อผู้ใช้งานหรืออีเมลนี้ถูกใช้งานแล้ว' });
+        }
+        if (err.code === 'ER_LOCK_WAIT_TIMEOUT' || err.code === 'ER_LOCK_DEADLOCK') {
+            return res.status(503).json({ success: false, message: 'ระบบไม่ว่าง กรุณาลองสมัครใหม่อีกครั้ง' });
+        }
+        res.status(500).json({ success: false, message: 'ไม่สามารถสมัครสมาชิกได้ กรุณาลองใหม่อีกครั้ง' });
     } finally {
+        if (lockAcquired) {
+            try { await conn.query("SELECT RELEASE_LOCK('lekhafong_register')"); } catch { /* ignore */ }
+        }
         conn.release();
     }
 });
@@ -331,9 +450,12 @@ app.post('/api/products', async (req, res) => {
         }
 
         const nextId = equipment_id ? Number(equipment_id) : await getNextId(db, 'EQUIPMENT', 'equipment_id');
-        const stockVal = stock !== undefined && stock !== '' ? Math.max(0, Number(stock)) : (status === 'Available' ? 1 : 0);
+        const parsedStock = Number(stock);
+        const stockVal = (stock !== undefined && stock !== '' && Number.isFinite(parsedStock))
+            ? Math.max(0, parsedStock)
+            : (status === 'Available' ? 1 : 0);
         const finalStatus = stockVal <= 0 && status === 'Available' ? 'In Use' : (status || 'Available');
-        const detailJson = Array.isArray(detail_images) ? JSON.stringify(detail_images.slice(0, 4)) : '[]';
+        const detailJson = JSON.stringify(normalizeDetailImagesInput(detail_images) || []);
 
         await db.query(
             `INSERT INTO EQUIPMENT 
@@ -378,9 +500,30 @@ app.put('/api/products/:id', async (req, res) => {
     } = req.body;
 
     try {
-        const stockVal = stock !== undefined && stock !== '' ? Math.max(0, Number(stock)) : (status === 'Available' ? 1 : 0);
+        const [existingRows] = await db.query(
+            'SELECT main_image, detail_images FROM EQUIPMENT WHERE equipment_id = ? LIMIT 1',
+            [id]
+        );
+        if (existingRows.length === 0) {
+            return res.status(404).json({ success: false, message: 'ไม่พบอุปกรณ์นี้ในระบบ' });
+        }
+        const existing = existingRows[0];
+
+        const parsedStock = Number(stock);
+        const stockVal = (stock !== undefined && stock !== '' && Number.isFinite(parsedStock))
+            ? Math.max(0, parsedStock)
+            : (status === 'Available' ? 1 : 0);
         const finalStatus = stockVal <= 0 && status === 'Available' ? 'In Use' : status;
-        const detailJson = Array.isArray(detail_images) ? JSON.stringify(detail_images.slice(0, 4)) : '[]';
+
+        // Image fields are only replaced when the caller explicitly sends them.
+        // This keeps an edit that does not open the image manager from wiping
+        // the product's existing images.
+        const hasMainImage = Object.prototype.hasOwnProperty.call(req.body || {}, 'main_image');
+        const hasDetailImages = Object.prototype.hasOwnProperty.call(req.body || {}, 'detail_images');
+        const nextMainImage = hasMainImage ? (main_image || null) : existing.main_image;
+        const nextDetailJson = hasDetailImages
+            ? JSON.stringify(normalizeDetailImagesInput(detail_images) || [])
+            : (existing.detail_images || '[]');
 
         await db.query(
             `UPDATE EQUIPMENT 
@@ -395,15 +538,15 @@ app.put('/api/products/:id', async (req, res) => {
                 model_series || '',
                 finalStatus,
                 Number(daily_rate),
-                main_image || null,
-                detailJson,
+                nextMainImage,
+                nextDetailJson,
                 stockVal,
                 id
             ]
         );
         res.json({ success: true, message: 'อัปเดตข้อมูลอุปกรณ์สำเร็จ' });
     } catch (err) {
-        res.status(500).json({ success: false, message: 'ไม่สามารถอัปเดตอุปกรณ์ได้: ' + err.message });
+        res.status(500).json({ success: false, message: 'ไม่สามารถอัปเดตอุปกรณ์ได้ กรุณาลองใหม่อีกครั้ง' });
     }
 });
 
@@ -576,7 +719,34 @@ app.delete('/api/admins/:accountId', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT ;
-app.listen(PORT, () => {
+function resolvePort(value) {
+    if (value === undefined || value === null || String(value).trim() === '') {
+        return 3031;
+    }
+    const raw = String(value).trim();
+    if (!/^[0-9]+$/.test(raw)) {
+        throw new Error(`Invalid PORT value "${raw}": PORT must be an integer between 1 and 65535.`);
+    }
+    const port = Number(raw);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error(`Invalid PORT value "${raw}": PORT must be an integer between 1 and 65535.`);
+    }
+    return port;
+}
+
+let PORT;
+try {
+    PORT = resolvePort(process.env.PORT);
+} catch (err) {
+    console.error(err.message);
+    process.exit(1);
+}
+
+const server = app.listen(PORT, () => {
     console.log(`LekhaFong Backend running at http://localhost:${PORT}`);
+});
+
+server.on('error', (err) => {
+    console.error('Backend server error:', err.message);
+    process.exit(1);
 });

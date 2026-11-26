@@ -106,7 +106,7 @@ const $ = (s, r = document) => r.querySelector(s);
         const TYPES = ['กล้อง', 'เลนส์', 'อุปกรณ์เสริม'];
         const typeOf = p => p.c === 'กล้อง' ? 0 : p.c === 'เลนส์' ? 1 : 2;
         const PAGE_VARIANT = { home: 'a', search: 'a', terms: 'd', team: 'd', detail: 'd', admin: 'd' };
-        const DEFAULT_FILTERS = { keyword: '', maxPrice: 3000, brand: 'ทุกยี่ห้อ', category: '', onlyAvailable: false };
+        const DEFAULT_FILTERS = { keyword: '', maxPrice: 3000, brand: 'ทุกยี่ห้อ', category: '', onlyAvailable: false, onlyFavorites: false };
 
         // สถานะปัจจุบันของแอปพลิเคชัน
         const state = {
@@ -114,11 +114,79 @@ const $ = (s, r = document) => r.querySelector(s);
             slide: 0,
             item: 0,
             type: -1,
+            sort: 'default',
             isAdmin: false,
             currentUser: null,
             advOpen:false,
-            filters: { keyword: '', pickupDate: '', returnDate: '', maxPrice: 50000, brand: 'ทุกยี่ห้อ' }
+            filters: { keyword: '', pickupDate: '', returnDate: '', maxPrice: 50000, brand: 'ทุกยี่ห้อ', category: '', onlyAvailable: false, onlyFavorites: false }
         };
+
+        const FAVORITES_STORAGE_KEY = 'lekhafong_favorites';
+        const DELIVERY_FEE = 150;
+        const DELIVERY_PICKUP_METHOD = 'จัดส่งถึงที่';
+        let favoriteIds = new Set();
+
+        // Favorites are browser-local (localStorage), not account-synchronised.
+        function loadFavorites() {
+            favoriteIds = new Set();
+            try {
+                const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+                if (!raw) return;
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(id => {
+                        if (id !== undefined && id !== null && String(id).trim() !== '') {
+                            favoriteIds.add(String(id));
+                        }
+                    });
+                }
+            } catch {
+                // Corrupted or unreadable storage: reset safely instead of breaking the UI.
+                favoriteIds = new Set();
+                try { localStorage.removeItem(FAVORITES_STORAGE_KEY); } catch { /* ignore */ }
+            }
+        }
+
+        function saveFavorites() {
+            try {
+                localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify([...favoriteIds]));
+            } catch {
+                showToast('ไม่สามารถบันทึกรายการโปรดในเบราว์เซอร์ได้', 'warning');
+            }
+        }
+
+        function isFavorite(productId) {
+            return favoriteIds.has(String(productId));
+        }
+
+        function getFavoriteCount() {
+            return favoriteIds.size;
+        }
+
+        function syncFavoriteButtons() {
+            document.querySelectorAll('[data-fav-id]').forEach(btn => {
+                const on = isFavorite(btn.dataset.favId);
+                btn.classList.toggle('on', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-solid', on);
+                    icon.classList.toggle('fa-regular', !on);
+                }
+            });
+        }
+
+        function clearFavoritesFilter() {
+            state.filters.onlyFavorites = false;
+            render();
+        }
+
+        function openFavoritesView() {
+            state.filters.onlyFavorites = true;
+            state.type = -1;
+            state.filters.keyword = '';
+            goToPage('search', { type: -1, keepFavorites: true });
+        }
 
         /* ============================================================================
         2. MYSQL & BACKEND API PLACEHOLDERS (เว้นจุดเชื่อมต่อ Database MySQL)
@@ -200,20 +268,18 @@ const $ = (s, r = document) => r.querySelector(s);
             document.head.appendChild(style);
         })();
 
-        window.scrollBrands = (trackId, dir) => {
-            const id = trackId.startsWith('track-') ? trackId : `track-${trackId}`;
-            const track = document.getElementById(id);
-            if (track) {
-                track.scrollBy({ left: dir * Math.max(260, track.clientWidth * 0.75), behavior: 'smooth' });
-            }
-        };
-
+        // Single implementation used by both data-scroll-track handlers and any
+        // legacy inline callers. Accepts "b1" or "track-b1".
         function scrollBrands(trackId, direction) {
-            const track = document.getElementById(trackId);
+            if (!trackId) return;
+            const rawId = String(trackId);
+            const id = rawId.startsWith('track-') ? rawId : `track-${rawId}`;
+            const track = document.getElementById(id);
             if (!track) return;
-            const step = Math.max(280, track.clientWidth * 0.55);
-            track.scrollBy({ left: direction * step, behavior: 'smooth' });
+            const dir = Number(direction) || 1;
+            track.scrollBy({ left: dir * Math.max(260, track.clientWidth * 0.75), behavior: 'smooth' });
         }
+        window.scrollBrands = scrollBrands;
         function getBrandCount(brandName, targetCategory) {
             const list = (typeof P !== 'undefined' && Array.isArray(P)) ? P : [];
             const targetBrand = String(brandName || '').trim().toLowerCase();
@@ -271,10 +337,34 @@ const $ = (s, r = document) => r.querySelector(s);
         // แปลง Path รูปภาพให้เรียกจาก Backend Storage ได้ถูกต้อง
         function resolveImageUrl(imgPath) {
             if (!imgPath) return '';
-            if (imgPath.startsWith('http') || imgPath.startsWith('blob:') || imgPath.startsWith('data:')) {
-                return imgPath;
+            const value = String(imgPath).trim();
+            if (!value) return '';
+            if (/^(https?:|blob:|data:)/i.test(value)) {
+                return value;
             }
-            return `${BACKEND_ORIGIN}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
+            // Already an absolute backend URL: never prepend the origin twice.
+            if (value.startsWith(BACKEND_ORIGIN)) {
+                return value;
+            }
+            return `${BACKEND_ORIGIN}${value.startsWith('/') ? '' : '/'}${value}`;
+        }
+
+        // Keep uploads as root-relative paths in the database. Absolute URLs that
+        // point at our own backend are converted back to "/uploads/...".
+        function normalizeImagePath(imgPath) {
+            if (imgPath === undefined || imgPath === null) return '';
+            const value = String(imgPath).trim();
+            if (!value) return '';
+            if (/^(https?:|blob:|data:)/i.test(value)) {
+                try {
+                    const url = new URL(value);
+                    if (`${url.protocol}//${url.host}` === BACKEND_ORIGIN) {
+                        return `${url.pathname}${url.search}${url.hash}`;
+                    }
+                } catch { /* keep the original absolute URL */ }
+                return value;
+            }
+            return value.startsWith('/') ? value : `/${value}`;
         }
 
         function mapEquipmentToProduct(row) {
@@ -399,6 +489,10 @@ const $ = (s, r = document) => r.querySelector(s);
             }, 4000);
         }
 
+        function showForgotPasswordHelp() {
+            showToast('หากลืมรหัสผ่าน กรุณาติดต่อผู้ดูแลระบบเพื่อดำเนินการรีเซ็ตรหัสผ่าน', 'warning');
+        }
+
         // ---------------- ระบบ Custom Confirmation Modal ----------------
         function showConfirmModal(title, message, onConfirm) {
             const existing = document.getElementById('custom-confirm-modal');
@@ -495,15 +589,17 @@ const $ = (s, r = document) => r.querySelector(s);
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(userData)
                 });
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data.success) {
                     showToast(data.message || 'สมัครสมาชิกไม่สำเร็จ', 'error');
-                    return;
+                    return false;
                 }
                 showToast('สมัครสมาชิกสำเร็จ สามารถเข้าสู่ระบบได้ทันที', 'success');
                 switchAuthTab('login');
+                return true;
             } catch (err) {
                 showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
+                return false;
             }
         }
 
@@ -537,7 +633,21 @@ const $ = (s, r = document) => r.querySelector(s);
         }
 
         async function apiToggleFavorite(productId) {
-            showToast('อัปเดตรายการโปรดแล้ว', 'success');
+            if (productId === undefined || productId === null || String(productId).trim() === '') return;
+            const id = String(productId);
+            const wasFavorite = favoriteIds.has(id);
+            if (wasFavorite) {
+                favoriteIds.delete(id);
+            } else {
+                favoriteIds.add(id);
+            }
+            saveFavorites();
+            syncFavoriteButtons();
+            showToast(wasFavorite ? 'นำออกจากรายการโปรดแล้ว' : 'เพิ่มในรายการโปรดแล้ว', 'success');
+            // When viewing the favourites-only catalog, refresh the result list.
+            if (state.p === 'search' && state.filters.onlyFavorites) {
+                render();
+            }
         }
 
         async function apiAdminAddProduct(productData) {
@@ -749,9 +859,15 @@ const $ = (s, r = document) => r.querySelector(s);
         let currentDepth = 0;
         let resetForwardStack = false;
 
+        function buildPageQuery(page, item) {
+            return (page === 'detail' && item !== undefined && item !== null && String(item) !== '' && String(item) !== '0')
+                ? `?page=detail&id=${encodeURIComponent(item)}`
+                : `?page=${page}`;
+        }
+
         // ฟังก์ชันเปลี่ยนหน้าหลักของเว็บไซต์ (รองรับทั้งชื่อหน้า 'home' และ ID 'home-view')
         function goToPage(pageInput, options = {}, addHistory = true) {
-            const page = pageInput.replace('-view', '');
+            const page = String(pageInput || 'home').replace('-view', '');
 
             // หากกลับมาหน้า home ให้ถอย Stack กลับไปจุดเริ่มต้นและตัดหน้าเก่าใน Forward Stack ทิ้ง
             if (addHistory && page === 'home') {
@@ -766,14 +882,17 @@ const $ = (s, r = document) => r.querySelector(s);
             }
 
             state.p = page;
+            // Favorites-only is a transient mode: entering the catalog through
+            // normal menu/search/brand navigation leaves it.
+            if (page === 'search' && !options.keepFavorites) {
+                state.filters.onlyFavorites = false;
+            }
             if (options.type !== undefined) state.type = options.type;
             if (options.item !== undefined) state.item = options.item;
 
             if (addHistory && page !== 'home') {
                 currentDepth++;
-                const nextQuery = (state.p === 'detail' && state.item)
-                    ? `?page=detail&id=${encodeURIComponent(state.item)}`
-                    : `?page=${state.p}`;
+                const nextQuery = buildPageQuery(state.p, state.item);
                 history.pushState(
                     { page: state.p, type: state.type, item: state.item, depth: currentDepth },
                     '',
@@ -790,10 +909,16 @@ const $ = (s, r = document) => r.querySelector(s);
             goToPage(viewId, {}, addHistory);
         }
 
-        // ดักจับการกดปุ่ม ย้อนกลับ (Backward) และ ไปข้างหน้า (Forward) ของเบราว์เซอร์
+        // Single popstate dispatcher: closes the rental modal first, then applies
+        // the browser-history navigation state. This removes the old race between
+        // two separate popstate listeners.
         window.addEventListener('popstate', (event) => {
+            if (document.getElementById('rental-confirm-popup')) {
+                cancelRentalPopup(true);
+            }
+
             const st = event.state || { page: 'home', type: -1, item: 0, depth: 0 };
-            currentDepth = st.depth || 0;
+            currentDepth = Number.isFinite(Number(st.depth)) ? Number(st.depth) : 0;
             state.p = st.page || 'home';
             state.type = st.type !== undefined ? st.type : -1;
             state.item = st.item !== undefined ? st.item : 0;
@@ -807,17 +932,28 @@ const $ = (s, r = document) => r.querySelector(s);
             }
         });
 
-        // ตั้งค่าหน้าเริ่มต้นเวลาโหลดเว็บหรือกด Refresh
+        // ตั้งค่าหน้าเริ่มต้นเวลาโหลดเว็บหรือกด Refresh (รองรับ deep link ?page=detail&id=...)
         window.addEventListener('DOMContentLoaded', async () => {
-        syncAuthFromStorage();
-        await apiFetchProducts();
-        const params = new URLSearchParams(window.location.search);
-        const initialPage = params.get('page') || 'home';
-        currentDepth = 0;
-        state.p = initialPage;
-        enforceAdminGuard();
-        history.replaceState({ page: state.p, type: state.type, item: state.item, depth: 0 }, '', `?page=${state.p}`);
-        render();
+            syncAuthFromStorage();
+            loadFavorites();
+            await apiFetchProducts();
+            const params = new URLSearchParams(window.location.search);
+            const initialPage = params.get('page') || 'home';
+            const initialId = params.get('id') || '';
+            const initialType = params.get('type');
+            currentDepth = 0;
+            state.p = initialPage;
+            state.item = initialId || state.item;
+            if (initialType !== null && initialType !== '' && Number.isFinite(Number(initialType))) {
+                state.type = Number(initialType);
+            }
+            enforceAdminGuard();
+            history.replaceState(
+                { page: state.p, type: state.type, item: state.item, depth: 0 },
+                '',
+                buildPageQuery(state.p, state.item)
+            );
+            render();
         });
 
         /* ============================================================================
@@ -861,7 +997,7 @@ const $ = (s, r = document) => r.querySelector(s);
                     ${logo()}
                     <div class="dicons">
                         ${adminBtnHtml}
-                        <button type="button" class="icon-btn" aria-label="รายการโปรด" onclick="goToPage('search', { type: -1 })">${ic('heart')}</button>
+                        <button type="button" class="icon-btn ${state.p === 'search' && state.filters.onlyFavorites ? 'on' : ''}" aria-label="รายการโปรด (${getFavoriteCount()})" aria-pressed="${state.p === 'search' && state.filters.onlyFavorites ? 'true' : 'false'}" title="รายการโปรด" onclick="openFavoritesView()">${ic('heart')}</button>
                         ${loginBtnHtml}
                     </div>
                 </div>
@@ -876,9 +1012,10 @@ const $ = (s, r = document) => r.querySelector(s);
         function logoutUser() {
             state.currentUser = null;
             state.user = null;
+            state.userProfile = null;
             state.isAdmin = false;
-            localStorage.clear();
-            sessionStorage.clear();
+            // Keep unrelated browser-local data (notably favourites) intact.
+            try { localStorage.removeItem('lekhafong_auth'); } catch { /* ignore */ }
             if (state.p === 'admin') state.p = 'home';
             render();
         }
@@ -974,7 +1111,7 @@ const $ = (s, r = document) => r.querySelector(s);
                         : ic(p.i)
                     }
                     ${renderStatusPill(p)}
-                    <button type="button" class="fav" aria-label="บันทึก ${p.n}" onclick="event.stopPropagation(); this.classList.toggle('on'); apiToggleFavorite('${p.id}')">${ic('heart')}</button>
+                    <button type="button" class="fav ${isFavorite(p.id) ? 'on' : ''}" data-fav-id="${p.id}" aria-label="บันทึก ${p.n}" aria-pressed="${isFavorite(p.id) ? 'true' : 'false'}" onclick="event.stopPropagation(); apiToggleFavorite('${p.id}')">${ic('heart')}</button>
                 </div>
                 <div class="card-body">
                     <span class="card-cat">${p.c}</span>
@@ -1125,22 +1262,62 @@ const $ = (s, r = document) => r.querySelector(s);
         }
 
         /* ---------- [COMPONENT 6] SEARCH / CATALOG VIEW (หน้าค้นหาและแสดงรายการอุปกรณ์) ---------- */
+        const SORT_OPTIONS = [
+            ['default', 'เรียง: ค่าเริ่มต้น'],
+            ['price-asc', 'ราคาต่ำ → สูง'],
+            ['price-desc', 'ราคาสูง → ต่ำ'],
+            ['name-asc', 'ชื่อ A–Z'],
+            ['name-desc', 'ชื่อ Z–A']
+        ];
+
+        // Sort a copy so the canonical product array (P) is never mutated.
+        function sortCatalogList(list) {
+            const sorted = [...list];
+            switch (state.sort) {
+                case 'price-asc':
+                    return sorted.sort((a, b) => (Number(a.p) || 0) - (Number(b.p) || 0));
+                case 'price-desc':
+                    return sorted.sort((a, b) => (Number(b.p) || 0) - (Number(a.p) || 0));
+                case 'name-asc':
+                    return sorted.sort((a, b) => String(a.n || '').localeCompare(String(b.n || ''), 'th', { sensitivity: 'base', numeric: true }));
+                case 'name-desc':
+                    return sorted.sort((a, b) => String(b.n || '').localeCompare(String(a.n || ''), 'th', { sensitivity: 'base', numeric: true }));
+                default:
+                    return sorted;
+            }
+        }
+
+        function setCatalogSort(value) {
+            state.sort = SORT_OPTIONS.some(([key]) => key === value) ? value : 'default';
+            render();
+        }
+
         function catalog() {
             const head = pageHead('Equipment', 'Find your <em>gear</em>.', 'ค้นหาจากอุปกรณ์กว่า 500 รายการ กรองตามหมวด ราคา และวันที่ว่าง');
             const chips = `<div class="chips filters" role="group" aria-label="หมวดหมู่">${['ทั้งหมด', ...TYPES].map((c, i) => `<button type="button" class="chip ${state.type === i - 1 ? 'on' : ''}" data-type-chip="${i - 1}" aria-pressed="${state.type === i - 1}">${c}</button>`).join('')}</div>`;
 
-            // กรองสินค้าตามหมวดหมู่ คำค้นหา ราคา และยี่ห้อ
-            const kw = state.filters.keyword.trim().toLowerCase();
-            const list = P.filter(p => {
+            // กรองสินค้าตามหมวดหมู่ คำค้นหา ราคา ยี่ห้อ และรายการโปรด
+            const kw = String(state.filters.keyword || '').trim().toLowerCase();
+            const filtered = P.filter(p => {
                 const matchType = state.type < 0 || typeOf(p) === state.type;
                 const matchCategory = !state.filters.category || p.c === state.filters.category;
-                const matchKw = !kw || p.n.toLowerCase().includes(kw) || p.c.toLowerCase().includes(kw) || p.s.toLowerCase().includes(kw);
+                const matchKw = !kw || String(p.n || '').toLowerCase().includes(kw) || String(p.c || '').toLowerCase().includes(kw) || String(p.s || '').toLowerCase().includes(kw);
                 const matchPrice = p.p <= state.filters.maxPrice;
                 const matchBrand = state.filters.brand === 'ทุกยี่ห้อ' || String(p.brand || '').trim().toLowerCase() === String(state.filters.brand || '').trim().toLowerCase();
                 const matchStatus = !state.filters.onlyAvailable || (p.status === 'Available' && Number(p.stock) > 0);
-                return matchType && matchCategory && matchKw && matchPrice && matchBrand && matchStatus;
+                const matchFavorite = !state.filters.onlyFavorites || isFavorite(p.id);
+                return matchType && matchCategory && matchKw && matchPrice && matchBrand && matchStatus && matchFavorite;
             });
-            const bar = `<div class="res-bar"><div class="count serif">พบ ${list.length} รายการ</div><label><span class="sr-only">เรียงตาม</span><select class="field"><option>เรียง: ยอดนิยม</option><option>ราคาต่ำ → สูง</option><option>ราคาสูง → ต่ำ</option><option>มาใหม่</option></select></label></div>`;
+            const list = sortCatalogList(filtered);
+
+            const selectedSort = SORT_OPTIONS.some(([key]) => key === state.sort) ? state.sort : 'default';
+            const bar = `<div class="res-bar"><div class="count serif">พบ ${list.length} รายการ</div><label><span class="sr-only">เรียงตาม</span><select class="field" id="catalog-sort" onchange="setCatalogSort(this.value)">${SORT_OPTIONS.map(([value, label]) => `<option value="${value}" ${selectedSort === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
+            const favoriteFilter = state.filters.onlyFavorites
+                ? `<div class="chips filters" role="status" aria-live="polite"><span class="chip on">รายการโปรด (${getFavoriteCount()})</span><button type="button" class="chip" onclick="clearFavoritesFilter()">ล้างตัวกรองรายการโปรด</button></div>`
+                : '';
+            const emptyMessage = state.filters.onlyFavorites
+                ? 'ยังไม่มีอุปกรณ์ในรายการโปรด กดไอคอนหัวใจที่การ์ดสินค้าเพื่อบันทึกไว้'
+                : 'ไม่พบอุปกรณ์ที่ตรงกับเงื่อนไขการค้นหา';
             const pager = `<div class="pager"><button type="button" class="on">1</button><button type="button">2</button><button type="button">3</button><button type="button" aria-label="ถัดไป">${ic('arrow')}</button></div>`;
 
             return `
@@ -1149,8 +1326,9 @@ const $ = (s, r = document) => r.querySelector(s);
                 ${head}
                 <div class="searchwrap">${searchBlock()}${advPanel()}</div>
                 ${chips}
+                ${favoriteFilter}
                 ${bar}
-                <div class="grid">${list.length ? list.map((p, i) => card(p, i)).join('') : '<p class="muted">ไม่พบอุปกรณ์ที่ตรงกับเงื่อนไขการค้นหา</p>'}</div>
+                <div class="grid">${list.length ? list.map((p, i) => card(p, i)).join('') : `<p class="muted">${emptyMessage}</p>`}</div>
                 ${pager}
             </main>`;
         }
@@ -1254,8 +1432,12 @@ const $ = (s, r = document) => r.querySelector(s);
 
             // อัปเดต URL ให้มี &id= เสมอ (กด F5 รีเฟรชแล้วไม่หลุดไปตัวแรก)
             if (window.location.search.includes('page=detail') && urlParams.get('id') !== String(p.id)) {
-                const nextUrl = `${window.location.pathname}?page=detail&id=${encodeURIComponent(p.id)}`;
-                window.history.replaceState({}, '', nextUrl);
+                const nextUrl = `${window.location.pathname}${buildPageQuery('detail', p.id)}`;
+                window.history.replaceState(
+                    { ...(history.state || {}), page: 'detail', item: p.id, depth: currentDepth },
+                    '',
+                    nextUrl
+                );
             }
 
             const galleryImages = [p.main_image, ...(p.detail_images || [])].filter(Boolean);
@@ -1281,8 +1463,8 @@ const $ = (s, r = document) => r.querySelector(s);
                                 ? `<img id="pd-main-preview" src="${resolveImageUrl(galleryImages[0])}" alt="${p.n}" class="pd-real-img">`
                                 : `<div class="w-32 h-32 text-[#6F6262]">${ic(p.i)}</div>`
                             }
-                            <button type="button" onclick="apiToggleFavorite('${p.id}')" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#BF4B72] flex items-center justify-center shadow transition" aria-label="รายการโปรด">
-                                <i class="fa-regular fa-heart"></i>
+                            <button type="button" data-fav-id="${p.id}" aria-pressed="${isFavorite(p.id) ? 'true' : 'false'}" onclick="apiToggleFavorite('${p.id}')" class="fav-toggle ${isFavorite(p.id) ? 'on' : ''} absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-[#BF4B72] flex items-center justify-center shadow transition" aria-label="รายการโปรด">
+                                <i class="${isFavorite(p.id) ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
                             </button>
                         </div>
 
@@ -1366,13 +1548,17 @@ const $ = (s, r = document) => r.querySelector(s);
                             </div>
                         </div>
 
+                        <div id="rental-estimate" data-product-id="${p.id}" class="text-xs bg-[#FFF5F5] border border-[#EBD3D1] rounded-xl px-3.5 py-2.5 mb-5 text-[#6F6262]">
+                            เลือกวันรับ–คืนเพื่อดูยอดรวมโดยประมาณ
+                        </div>
+
                         <div class="flex items-center gap-3">
                             <button type="button" onclick="handleRentNowClick('${p.id}')" ${!isAvailable ? 'disabled' : ''} class="flex-1 py-3.5 px-6 rounded-full font-bold text-white shadow transition flex items-center justify-center gap-2 ${isAvailable ? 'bg-[#9E4763] hover:bg-[#863852]' : 'bg-gray-400 cursor-not-allowed'}">
                                 <span>${isAvailable ? 'เช่าเลย' : 'ไม่พร้อมให้เช่า'}</span>
                                 <i class="fa-solid fa-arrow-right text-xs"></i>
                             </button>
-                            <button type="button" onclick="apiToggleFavorite('${p.id}')" class="w-12 h-12 rounded-full border border-[#D9B5BA] bg-white hover:bg-[#FFF5F5] text-[#4A4A4A] flex items-center justify-center transition" aria-label="บันทึก">
-                                <i class="fa-regular fa-heart"></i>
+                            <button type="button" data-fav-id="${p.id}" aria-pressed="${isFavorite(p.id) ? 'true' : 'false'}" onclick="apiToggleFavorite('${p.id}')" class="fav-toggle ${isFavorite(p.id) ? 'on' : ''} w-12 h-12 rounded-full border border-[#D9B5BA] bg-white hover:bg-[#FFF5F5] text-[#4A4A4A] flex items-center justify-center transition" aria-label="บันทึก">
+                                <i class="${isFavorite(p.id) ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
                             </button>
                         </div>
 
@@ -1793,23 +1979,6 @@ const $ = (s, r = document) => r.querySelector(s);
             });
         }
 
-        // จัดการการกด Submit ฟอร์ม Login
-        async function handleLoginSubmit(event) {
-            event.preventDefault();
-            const email = document.getElementById('login-email')?.value.trim() || '';
-            const password = document.getElementById('login-password')?.value || '';
-
-            const user = await apiLoginUser(email, password);
-            if (!user) return;
-
-            toggleModal('login-modal');
-            if (user.role === 'Admin') {
-                goToPage('admin');
-            } else {
-                render();
-            }
-        }
-
         function logoutAdmin() {
             localStorage.removeItem('lekhafong_auth');
             syncAuthFromStorage();
@@ -1888,88 +2057,6 @@ const $ = (s, r = document) => r.querySelector(s);
         function backToUserList() {
             document.getElementById('user-detail-view').classList.add('hidden');
             document.getElementById('user-list-view').classList.remove('hidden');
-        }
-
-        function renderAdminProductsTable() {
-            const tbody = document.getElementById('admin-products-tbody');
-            if (!tbody) return;
-            if (!adminProductsCache.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6F6262]">ยังไม่มีข้อมูลอุปกรณ์</td></tr>';
-                return;
-            }
-            tbody.innerHTML = adminProductsCache.map(item => `
-                <tr class="hover:bg-[#FFF5F5]/60 transition">
-                    <td class="p-4 font-medium">#${item.equipment_id}</td>
-                    <td class="p-4 font-semibold text-[#4A4A4A]">${item.name}</td>
-                    <td class="p-4">${item.brand} · ${item.type}</td>
-                    <td class="p-4 text-xs font-mono">${item.serial_number}</td>
-                    <td class="p-4 font-semibold text-[#BF4B72]">฿${Number(item.daily_rate).toLocaleString()}</td>
-                    <td class="p-4">
-                        <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${item.status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}">
-                            ${item.status}
-                        </span>
-                    </td>
-                    <td class="p-4 text-center">
-                        <button type="button" onclick="openProductDetailById(${item.equipment_id})" class="text-[#BF4B72] hover:underline font-semibold">ดูเพิ่มเติม</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function openProductDetailById(equipmentId) {
-            const item = adminProductsCache.find(x => x.equipment_id === equipmentId);
-            if (!item) return;
-            document.getElementById('product-list-view').classList.add('hidden');
-            document.getElementById('product-add-view').classList.add('hidden');
-            document.getElementById('product-detail-view').classList.remove('hidden');
-
-            document.getElementById('pd-id').value = item.equipment_id;
-            document.getElementById('pd-name').value = item.name || '';
-            document.getElementById('pd-type').value = item.type || '';
-            document.getElementById('pd-brand').value = item.brand || '';
-            document.getElementById('pd-serial').value = item.serial_number || '';
-            document.getElementById('pd-series').value = item.model_series || '';
-            document.getElementById('pd-price').value = item.daily_rate || 0;
-            document.getElementById('pd-status').value = item.status || 'Available';
-            document.getElementById('pd-desc').value = item.description || '';
-        }
-
-        function submitProductUpdate() {
-            const id = document.getElementById('pd-id').value;
-            apiAdminUpdateProduct(id, {
-                name: document.getElementById('pd-name').value.trim(),
-                type: document.getElementById('pd-type').value.trim(),
-                brand: document.getElementById('pd-brand').value.trim(),
-                serial_number: document.getElementById('pd-serial').value.trim(),
-                model_series: document.getElementById('pd-series').value.trim(),
-                daily_rate: document.getElementById('pd-price').value,
-                status: document.getElementById('pd-status').value,
-                description: document.getElementById('pd-desc').value.trim()
-            });
-        }
-
-        function submitNewProduct() {
-            apiAdminAddProduct({
-                name: document.getElementById('new-pd-name').value.trim(),
-                daily_rate: document.getElementById('new-pd-price').value,
-                type: document.getElementById('new-pd-type').value.trim(),
-                brand: document.getElementById('new-pd-brand').value.trim(),
-                serial_number: document.getElementById('new-pd-serial').value.trim(),
-                status: document.getElementById('new-pd-status').value,
-                description: document.getElementById('new-pd-desc').value.trim()
-            });
-        }
-
-        function showAddProduct() {
-            document.getElementById('product-list-view').classList.add('hidden');
-            document.getElementById('product-detail-view').classList.add('hidden');
-            document.getElementById('product-add-view').classList.remove('hidden');
-        }
-
-        function backToProductList() {
-            document.getElementById('product-detail-view').classList.add('hidden');
-            document.getElementById('product-add-view').classList.add('hidden');
-            document.getElementById('product-list-view').classList.remove('hidden');
         }
 
         function renderAdminListTable() {
@@ -2103,29 +2190,58 @@ const $ = (s, r = document) => r.querySelector(s);
         // จัดการการกด Submit ฟอร์ม Sign up
         async function handleSignupSubmit(event) {
             event.preventDefault();
-            const password = document.getElementById('su-password')?.value.trim() || '';
+            const password = document.getElementById('su-password')?.value || '';
+            const phoneInput = document.getElementById('su-phone')?.value.trim() || '';
+            const phoneDigits = phoneInput.replace(/[^0-9]/g, '');
+
+            if (!password || !password.trim()) {
+                showToast('กรุณากำหนดรหัสผ่านก่อนสมัครสมาชิก', 'error');
+                document.getElementById('su-password')?.focus();
+                return;
+            }
+            if (!/^[0-9\s-]+$/.test(phoneInput) || !/^0[689][0-9]{8}$/.test(phoneDigits)) {
+                showToast('กรุณากรอกเบอร์โทรศัพท์มือถือให้ถูกต้อง เช่น 0812345678 หรือ 081-234-5678', 'error');
+                document.getElementById('su-phone')?.focus();
+                return;
+            }
+
             const payload = {
                 first_name: document.getElementById('su-first')?.value.trim() || '',
                 last_name: document.getElementById('su-last')?.value.trim() || '',
                 email: document.getElementById('su-email')?.value.trim() || '',
-                phone: document.getElementById('su-phone')?.value.trim() || '',
+                phone: phoneDigits,
                 address: document.getElementById('su-address')?.value.trim() || '',
                 username: document.getElementById('su-username')?.value.trim() || '',
                 password: password
             };
 
-            await apiRegisterUser(payload);
-            event.target.reset();
+            const success = await apiRegisterUser(payload);
+            // Keep the entered values when registration fails so the user can fix them.
+            if (success) event.target.reset();
         }
 
         // ---------------- 2. ระบบ Popup อัปโหลดรูปภาพ (1 Main + 4 Detail) ----------------
-        let activeProductImages = { main_image: '', detail_images: ['', '', '', ''] };
-        let imageModalDraft = { mode: 'add', main: '', mainFile: null, details: ['', '', '', ''], detailFiles: [null, null, null, null] };
+        let activeProductImages = { productId: null, main_image: '', detail_images: ['', '', '', ''] };
+        let imageModalDraft = { mode: 'add', productId: null, main: '', mainFile: null, details: ['', '', '', ''], detailFiles: [null, null, null, null] };
+
+        function emptyImageSet(productId = null) {
+            return { productId, main_image: '', detail_images: ['', '', '', ''] };
+        }
+
+        // Initialise the editor's image state from one specific product.
+        function setActiveProductImagesFromProduct(item) {
+            const parsedDetails = parseDetailImages(item?.detail_images);
+            activeProductImages = {
+                productId: item && item.equipment_id !== undefined ? String(item.equipment_id) : null,
+                main_image: normalizeImagePath(item?.main_image || ''),
+                detail_images: [0, 1, 2, 3].map(i => normalizeImagePath(parsedDetails[i] || ''))
+            };
+        }
 
         function renderProductImageSummary(targetId) {
             const box = document.getElementById(targetId);
             if (!box) return;
-            const details = activeProductImages.detail_images.filter(Boolean);
+            const details = activeProductImages.detail_images.map(normalizeImagePath).filter(Boolean);
             if (!activeProductImages.main_image && details.length === 0) {
                 box.innerHTML = `<div class="text-xs text-[#6F6262] bg-white border border-dashed border-[#D9B5BA] rounded-xl px-4 py-3">ยังไม่ได้เลือกรูปภาพ (หากไม่เพิ่ม ระบบจะใช้ไอคอน Placeholder เดิม)</div>`;
                 return;
@@ -2148,17 +2264,28 @@ const $ = (s, r = document) => r.querySelector(s);
             `;
         }
 
+        function releaseDraftPreview(slotType, index) {
+            const value = slotType === 'main' ? imageModalDraft.main : imageModalDraft.details[index];
+            if (value && String(value).startsWith('blob:')) {
+                try { URL.revokeObjectURL(value); } catch { /* ignore */ }
+            }
+        }
+
+        function discardImageDraft() {
+            releaseDraftPreview('main', 0);
+            [0, 1, 2, 3].forEach(i => releaseDraftPreview('detail', i));
+            imageModalDraft = { mode: 'add', productId: null, main: '', mainFile: null, details: ['', '', '', ''], detailFiles: [null, null, null, null] };
+        }
+
         function openProductImageModal(mode) {
+            const currentId = document.getElementById('pd-id')?.value || '';
+            const ownerId = activeProductImages.productId || (mode === 'edit' && currentId ? String(currentId) : null);
             imageModalDraft = {
                 mode,
-                main: activeProductImages.main_image || '',
+                productId: ownerId,
+                main: normalizeImagePath(activeProductImages.main_image || ''),
                 mainFile: null,
-                details: [
-                    activeProductImages.detail_images[0] || '',
-                    activeProductImages.detail_images[1] || '',
-                    activeProductImages.detail_images[2] || '',
-                    activeProductImages.detail_images[3] || ''
-                ],
+                details: [0, 1, 2, 3].map(i => normalizeImagePath(activeProductImages.detail_images[i] || '')),
                 detailFiles: [null, null, null, null]
             };
             renderProductImageModal();
@@ -2250,9 +2377,11 @@ const $ = (s, r = document) => r.querySelector(s);
                 }
                 const previewUrl = URL.createObjectURL(file);
                 if (slotType === 'main') {
+                    releaseDraftPreview('main', 0);
                     imageModalDraft.main = previewUrl;
                     imageModalDraft.mainFile = file;
                 } else {
+                    releaseDraftPreview('detail', index);
                     imageModalDraft.details[index] = previewUrl;
                     imageModalDraft.detailFiles[index] = file;
                 }
@@ -2263,9 +2392,11 @@ const $ = (s, r = document) => r.querySelector(s);
 
         function removeImageSlot(slotType, index) {
             if (slotType === 'main') {
+                releaseDraftPreview('main', 0);
                 imageModalDraft.main = '';
                 imageModalDraft.mainFile = null;
             } else {
+                releaseDraftPreview('detail', index);
                 imageModalDraft.details[index] = '';
                 imageModalDraft.detailFiles[index] = null;
             }
@@ -2275,6 +2406,8 @@ const $ = (s, r = document) => r.querySelector(s);
         function closeProductImageModal() {
             const modal = document.getElementById('product-image-modal');
             if (modal) modal.remove();
+            // Cancelling never writes draft changes into activeProductImages.
+            discardImageDraft();
         }
 
         async function confirmProductImageModal() {
@@ -2284,6 +2417,14 @@ const $ = (s, r = document) => r.querySelector(s);
                 btn.textContent = 'กำลังอัปโหลด...';
             }
             try {
+                // Guard against a stale modal that belongs to a previous product.
+                if (imageModalDraft.mode === 'edit') {
+                    const currentId = String(document.getElementById('pd-id')?.value || '');
+                    if (imageModalDraft.productId && currentId && String(imageModalDraft.productId) !== currentId) {
+                        throw new Error('สินค้าที่กำลังแก้ไขเปลี่ยนไปแล้ว กรุณาเปิดหน้าจัดการรูปภาพใหม่');
+                    }
+                }
+
                 let finalMain = imageModalDraft.main;
                 if (imageModalDraft.mainFile) {
                     finalMain = await apiUploadImageFile(imageModalDraft.mainFile);
@@ -2294,9 +2435,18 @@ const $ = (s, r = document) => r.querySelector(s);
                         finalDetails[i] = await apiUploadImageFile(imageModalDraft.detailFiles[i]);
                     }
                 }
+
+                const safeMain = normalizeImagePath(finalMain);
+                const safeDetails = finalDetails.map(normalizeImagePath).slice(0, 4);
+                const hasTemporaryPreview = [safeMain, ...safeDetails].some(v => v.startsWith('blob:') || v.startsWith('data:'));
+                if (hasTemporaryPreview) {
+                    throw new Error('รูปภาพยังอัปโหลดไม่สำเร็จ กรุณาเลือกไฟล์และลองใหม่อีกครั้ง');
+                }
+
                 activeProductImages = {
-                    main_image: finalMain || '',
-                    detail_images: finalDetails
+                    productId: imageModalDraft.productId || activeProductImages.productId || null,
+                    main_image: safeMain || '',
+                    detail_images: safeDetails
                 };
                 renderProductImageSummary(imageModalDraft.mode === 'edit' ? 'edit-pd-img-summary' : 'add-pd-img-summary');
                 closeProductImageModal();
@@ -2343,7 +2493,7 @@ const $ = (s, r = document) => r.querySelector(s);
         }
 
         function openProductDetailById(equipmentId) {
-            const item = adminProductsCache.find(x => x.equipment_id === equipmentId);
+            const item = adminProductsCache.find(x => String(x.equipment_id) === String(equipmentId));
             if (!item) return;
             document.getElementById('product-list-view').classList.add('hidden');
             document.getElementById('product-add-view').classList.add('hidden');
@@ -2360,11 +2510,10 @@ const $ = (s, r = document) => r.querySelector(s);
             document.getElementById('pd-status').value = item.status || 'Available';
             document.getElementById('pd-desc').value = item.description || '';
 
-            const parsedDetails = parseDetailImages(item.detail_images);
-            activeProductImages = {
-                main_image: item.main_image || '',
-                detail_images: [parsedDetails[0] || '', parsedDetails[1] || '', parsedDetails[2] || '', parsedDetails[3] || '']
-            };
+            // Always rebuild the image state from this product. Never reuse the
+            // previous product's activeProductImages.
+            discardImageDraft();
+            setActiveProductImagesFromProduct(item);
             renderProductImageSummary('edit-pd-img-summary');
         }
 
@@ -2372,12 +2521,54 @@ const $ = (s, r = document) => r.querySelector(s);
             document.getElementById('product-list-view').classList.add('hidden');
             document.getElementById('product-detail-view').classList.add('hidden');
             document.getElementById('product-add-view').classList.remove('hidden');
-            activeProductImages = { main_image: '', detail_images: ['', '', '', ''] };
+            discardImageDraft();
+            activeProductImages = emptyImageSet(null);
+            const summary = document.getElementById('add-pd-img-summary');
+            if (summary) summary.innerHTML = '';
             renderProductImageSummary('add-pd-img-summary');
+        }
+
+        function backToProductList() {
+            closeProductImageModal();
+            activeProductImages = emptyImageSet(null);
+            document.getElementById('product-detail-view').classList.add('hidden');
+            document.getElementById('product-add-view').classList.add('hidden');
+            document.getElementById('product-list-view').classList.remove('hidden');
+        }
+
+        function getSafeActiveImagePayload() {
+            const main = normalizeImagePath(activeProductImages.main_image || '');
+            const details = activeProductImages.detail_images
+                .map(normalizeImagePath)
+                .filter(Boolean)
+                .slice(0, 4);
+            const hasTemporaryPreview = [main, ...details].some(v => v.startsWith('blob:') || v.startsWith('data:'));
+            if (hasTemporaryPreview) {
+                throw new Error('รูปภาพยังอัปโหลดไม่สำเร็จ กรุณากดบันทึกรูปภาพก่อนบันทึกสินค้า');
+            }
+            return { main_image: main || null, detail_images: details };
         }
 
         function submitProductUpdate() {
             const id = document.getElementById('pd-id').value;
+            // If the form somehow points at another product than the image state,
+            // rebuild the image state from that product before saving.
+            if (activeProductImages.productId && String(activeProductImages.productId) !== String(id)) {
+                const item = adminProductsCache.find(x => String(x.equipment_id) === String(id));
+                if (item) {
+                    setActiveProductImagesFromProduct(item);
+                    renderProductImageSummary('edit-pd-img-summary');
+                }
+            }
+
+            let images;
+            try {
+                images = getSafeActiveImagePayload();
+            } catch (err) {
+                showToast(err.message, 'error');
+                return;
+            }
+
             apiAdminUpdateProduct(id, {
                 name: document.getElementById('pd-name').value.trim(),
                 type: document.getElementById('pd-type').value,
@@ -2388,12 +2579,20 @@ const $ = (s, r = document) => r.querySelector(s);
                 stock: document.getElementById('pd-stock').value,
                 status: document.getElementById('pd-status').value,
                 description: document.getElementById('pd-desc').value.trim(),
-                main_image: activeProductImages.main_image || null,
-                detail_images: activeProductImages.detail_images.filter(Boolean)
+                main_image: images.main_image,
+                detail_images: images.detail_images
             });
         }
 
         function submitNewProduct() {
+            let images;
+            try {
+                images = getSafeActiveImagePayload();
+            } catch (err) {
+                showToast(err.message, 'error');
+                return;
+            }
+
             apiAdminAddProduct({
                 name: document.getElementById('new-pd-name').value.trim(),
                 daily_rate: document.getElementById('new-pd-price').value,
@@ -2403,8 +2602,8 @@ const $ = (s, r = document) => r.querySelector(s);
                 stock: document.getElementById('new-pd-stock').value,
                 status: document.getElementById('new-pd-status').value,
                 description: document.getElementById('new-pd-desc').value.trim(),
-                main_image: activeProductImages.main_image || null,
-                detail_images: activeProductImages.detail_images.filter(Boolean)
+                main_image: images.main_image,
+                detail_images: images.detail_images
             });
         }
 
@@ -2446,6 +2645,47 @@ const $ = (s, r = document) => r.querySelector(s);
             const r = new Date(returnStr);
             if (isNaN(s.getTime()) || isNaN(r.getTime())) return 0;
             return Math.ceil((r.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+        }
+
+        // Shared pricing helper so the detail estimate and the confirmation
+        // popup can never disagree. Delivery is a UI-side charge only.
+        function calculateRentalQuote({ dailyRate, startDate, returnDate, pickupMethod }) {
+            const rate = Number(dailyRate) || 0;
+            const days = calculateRentalDays(startDate, returnDate);
+            const equipmentFee = days > 0 ? days * rate : 0;
+            const deliveryFee = pickupMethod === DELIVERY_PICKUP_METHOD ? DELIVERY_FEE : 0;
+            return {
+                days,
+                dailyRate: rate,
+                equipmentFee,
+                deliveryFee,
+                total: equipmentFee + deliveryFee,
+                pickupMethod: pickupMethod || 'รับ-คืนที่ร้าน'
+            };
+        }
+
+        function updateRentalEstimate() {
+            const box = document.getElementById('rental-estimate');
+            if (!box) return;
+            const productId = box.dataset.productId || state.item;
+            const p = P.find(x => String(x.id) === String(productId));
+            if (!p) return;
+
+            const startDate = document.getElementById('rent-start-date')?.value || '';
+            const returnDate = document.getElementById('rent-return-date')?.value || '';
+            const pickupMethod = document.querySelector('input[name="pickup_method"]:checked')?.value || 'รับ-คืนที่ร้าน';
+            const quote = calculateRentalQuote({ dailyRate: p.p, startDate, returnDate, pickupMethod });
+
+            if (!startDate || !returnDate || quote.days <= 0) {
+                box.innerHTML = '<span class="text-[#6F6262]">เลือกวันรับ–คืนเพื่อดูยอดรวมโดยประมาณ</span>';
+                return;
+            }
+            box.innerHTML = `
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>ค่าเช่า ${quote.days} วัน: <b class="text-[#4A4A4A]">฿${quote.equipmentFee.toLocaleString()}</b></span>
+                    <span>ค่าจัดส่ง: <b class="text-[#4A4A4A]">${quote.deliveryFee ? `฿${quote.deliveryFee.toLocaleString()}` : 'ฟรี'}</b></span>
+                    <span>รวม: <b class="text-[#BF4B72]">฿${quote.total.toLocaleString()}</b></span>
+                </div>`;
         }
 
         function formatDateThaiSlash(dateStr) {
@@ -2496,9 +2736,13 @@ const $ = (s, r = document) => r.querySelector(s);
             const p = P.find(x => x.id === String(productId));
             if (!p) return;
 
-            const days = calculateRentalDays(startDate, returnDate);
-            const dailyRate = Number(p.p) || 0;
-            const totalPrice = days * dailyRate;
+            const quote = calculateRentalQuote({
+                dailyRate: p.p,
+                startDate,
+                returnDate,
+                pickupMethod
+            });
+            const { days, dailyRate, equipmentFee, deliveryFee, total: totalPrice } = quote;
 
             const existing = document.getElementById('rental-confirm-popup');
             if (existing) existing.remove();
@@ -2515,7 +2759,7 @@ const $ = (s, r = document) => r.querySelector(s);
                         <span class="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-[#F9E3EA] text-[#BF4B72] mb-2">ยืนยันรายการเช่าอุปกรณ์</span>
                         <h3 class="font-serif text-2xl md:text-3xl font-bold text-[#4A4A4A] mb-2">${p.n}</h3>
                         <div class="text-2xl md:text-3xl font-bold text-[#4A4A4A] my-3">
-                            เช่า <span class="text-[#BF4B72]">${String(days).padStart(2, '0')}</span> วัน ราคาสุทธิ <span class="text-[#BF4B72]">${totalPrice.toLocaleString()}</span> บาท
+                            เช่า <span class="text-[#BF4B72]">${String(days).padStart(2, '0')}</span> วัน ยอดรวม <span class="text-[#BF4B72]">${totalPrice.toLocaleString()}</span> บาท
                         </div>
 
                         <div class="bg-[#FFF5F5] border border-[#EBD3D1] rounded-2xl p-4 my-4 text-left text-xs md:text-sm space-y-1.5 text-[#6F6262]">
@@ -2523,7 +2767,9 @@ const $ = (s, r = document) => r.querySelector(s);
                             <div class="flex justify-between"><span>ราคาต่อวัน:</span><strong class="text-[#4A4A4A]">฿${dailyRate.toLocaleString()} / วัน</strong></div>
                             <div class="flex justify-between"><span>ช่วงวันที่เช่า:</span><strong class="text-[#4A4A4A]">${formatDateThaiSlash(startDate)} - ${formatDateThaiSlash(returnDate)} (${days} วัน)</strong></div>
                             <div class="flex justify-between"><span>วิธีรับ-คืน:</span><strong class="text-[#4A4A4A]">${pickupMethod}</strong></div>
-                            <div class="flex justify-between pt-1.5 border-t border-[#EBD3D1] text-sm"><span>ราคาสุทธิ:</span><strong class="text-[#BF4B72] text-base">฿${totalPrice.toLocaleString()}</strong></div>
+                            <div class="flex justify-between"><span>ค่าเช่าอุปกรณ์ (${days} วัน):</span><strong class="text-[#4A4A4A]">฿${equipmentFee.toLocaleString()}</strong></div>
+                            <div class="flex justify-between"><span>ค่าจัดส่ง:</span><strong class="text-[#4A4A4A]">${deliveryFee ? `฿${deliveryFee.toLocaleString()}` : 'ฟรี (รับ-คืนที่ร้าน)'}</strong></div>
+                            <div class="flex justify-between pt-1.5 border-t border-[#EBD3D1] text-sm"><span>ยอดรวมทั้งสิ้น:</span><strong class="text-[#BF4B72] text-base">฿${totalPrice.toLocaleString()}</strong></div>
                         </div>
 
                         <hr class="border-[#EBD3D1] my-4">
@@ -2587,6 +2833,14 @@ const $ = (s, r = document) => r.querySelector(s);
             }
 
             try {
+                const product = P.find(x => String(x.id) === String(productId));
+                const quote = calculateRentalQuote({
+                    dailyRate: product?.p || 0,
+                    startDate,
+                    returnDate,
+                    pickupMethod
+                });
+
                 const rentalResult = await apiSubmitRental({
                     account_id: state.userProfile.id,
                     equipment_id: Number(productId),
@@ -2600,7 +2854,7 @@ const $ = (s, r = document) => r.querySelector(s);
 
                 // โหลดข้อมูลสินค้าล่าสุดจาก MySQL เพื่อให้ Stock อัปเดตทันที
                 await apiFetchProducts();
-                showRentalSuccessPopup(rentalResult);
+                showRentalSuccessPopup(rentalResult, quote);
             } catch (err) {
                 showToast(err.message, 'error');
                 if (btn) {
@@ -2610,9 +2864,14 @@ const $ = (s, r = document) => r.querySelector(s);
             }
         }
 
-        function showRentalSuccessPopup(rental) {
+        function showRentalSuccessPopup(rental, quote) {
             const existing = document.getElementById('rental-success-popup');
             if (existing) existing.remove();
+
+            const equipmentFee = Number(rental.total_price) || 0;
+            const deliveryFee = Number(quote?.deliveryFee) || 0;
+            const grandTotal = equipmentFee + deliveryFee;
+            const deliveryLabel = deliveryFee ? `฿${deliveryFee.toLocaleString()}` : 'ฟรี (รับ-คืนที่ร้าน)';
 
             const modal = document.createElement('div');
             modal.id = 'rental-success-popup';
@@ -2626,13 +2885,16 @@ const $ = (s, r = document) => r.querySelector(s);
                         <h3 class="text-2xl font-bold text-[#4A4A4A] mb-1">ทำรายการเช่าสำเร็จ</h3>
                         <p class="text-sm text-[#6F6262] mb-5">ขอบคุณที่ไว้วางใจและใช้บริการ LekhaFong Production</p>
 
-                        <div class="bg-[#FFF5F5] border border-[#EBD3D1] rounded-2xl p-4 mb-6 text-left text-xs space-y-1.5 text-[#6F6262]">
+                        <div class="bg-[#FFF5F5] border border-[#EBD3D1] rounded-2xl p-4 mb-4 text-left text-xs space-y-1.5 text-[#6F6262]">
                             <div class="flex justify-between"><span>รหัสการเช่า (Rental ID):</span><strong class="text-[#BF4B72]">#${rental.rental_id}</strong></div>
                             <div class="flex justify-between"><span>สินค้า:</span><strong class="text-[#4A4A4A]">${rental.product_name}</strong></div>
                             <div class="flex justify-between"><span>จำนวน:</span><strong class="text-[#4A4A4A]">${rental.rental_days} วัน (${formatDateThaiSlash(rental.start_date)} - ${formatDateThaiSlash(rental.return_date)})</strong></div>
-                            <div class="flex justify-between"><span>ราคาสุทธิ:</span><strong class="text-[#4A4A4A]">฿${Number(rental.total_price).toLocaleString()}</strong></div>
+                            <div class="flex justify-between"><span>ค่าเช่าอุปกรณ์ (บันทึกในระบบ):</span><strong class="text-[#4A4A4A]">฿${equipmentFee.toLocaleString()}</strong></div>
+                            <div class="flex justify-between"><span>ค่าจัดส่ง (ประเมิน):</span><strong class="text-[#4A4A4A]">${deliveryLabel}</strong></div>
+                            <div class="flex justify-between pt-1.5 border-t border-[#EBD3D1]"><span>ยอดรวมที่แสดง:</span><strong class="text-[#BF4B72] text-base">฿${grandTotal.toLocaleString()}</strong></div>
                             <div class="flex justify-between"><span>สถานะ:</span><strong class="text-green-700">${rental.status}</strong></div>
                         </div>
+                        ${deliveryFee ? '<p class="text-[11px] text-[#6F6262] mb-5 leading-relaxed">หมายเหตุ: ระบบฐานข้อมูลบันทึกเฉพาะค่าเช่าอุปกรณ์ ค่าจัดส่งเป็นยอดประเมินสำหรับหน้านี้และยังไม่ถูกบันทึกในฐานข้อมูล</p>' : '<div class="mb-5"></div>'}
 
                         <button type="button" onclick="finishRentalSuccess()" class="px-10 py-3 rounded-full bg-[#2E8B57] hover:bg-[#257247] text-white font-bold text-sm shadow transition">
                             เรียบร้อย
@@ -2651,13 +2913,6 @@ const $ = (s, r = document) => r.querySelector(s);
             }
             render();
         }
-
-        // รองรับปุ่ม Browser Back เวลาเปิด Rental Popup อยู่
-        window.addEventListener('popstate', () => {
-            if (document.getElementById('rental-confirm-popup')) {
-                cancelRentalPopup(true);
-            }
-        });
 
         /* ============================================================================
         6. RENDER ENGINE & GLOBAL EVENT LISTENERS
@@ -2687,6 +2942,8 @@ const $ = (s, r = document) => r.querySelector(s);
             site.className = 'site v-' + (PAGE_VARIANT[state.p] || 'a');
             site.innerHTML = nav() + currentRenderer() + footer();
             initCarousels();
+            syncFavoriteButtons();
+            if (state.p === 'detail') updateRentalEstimate();
         }
 
         // จัดการคลิกทั้งหมดบนหน้าเว็บผ่าน Event Delegation
@@ -2723,6 +2980,7 @@ const $ = (s, r = document) => r.querySelector(s);
             const tc = t.closest('[data-type-chip]');
             if (tc) {
                 state.type = +tc.dataset.typeChip;
+                state.filters.onlyFavorites = false;
                 if (state.type === -1) {
                     state.filters.brand = 'ทุกยี่ห้อ';
                     state.filters.keyword = '';
@@ -2777,5 +3035,17 @@ const $ = (s, r = document) => r.querySelector(s);
         document.addEventListener('input', e => {
             if (e.target.type === 'range') {
                 e.target.parentElement.querySelector('.range-val').textContent = '฿' + (+e.target.value).toLocaleString('en-US');
+            }
+        });
+
+        // Keep the detail-page estimate in sync with dates and pickup method.
+        document.addEventListener('change', e => {
+            if (e.target.matches('#rent-start-date, #rent-return-date, input[name="pickup_method"]')) {
+                updateRentalEstimate();
+            }
+        });
+        document.addEventListener('input', e => {
+            if (e.target.matches('#rent-start-date, #rent-return-date')) {
+                updateRentalEstimate();
             }
         });
