@@ -538,7 +538,7 @@ app.put('/api/admins/:accountId', async (req, res) => {
     try {
         await conn.beginTransaction();
         if (password) {
-            await conn.query('UPDATE USER_ACCOUNT SET username = ?, password = ? WHERE account_id = ?', [username, Number(password), accountId]);
+            await conn.query('UPDATE USER_ACCOUNT SET username = ?, password = ? WHERE account_id = ?', [username, String(password), accountId]);
         } else {
             await conn.query('UPDATE USER_ACCOUNT SET username = ? WHERE account_id = ?', [username, accountId]);
         }
