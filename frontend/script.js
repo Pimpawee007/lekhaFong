@@ -564,15 +564,21 @@ const $ = (s, r = document) => r.querySelector(s);
             const existing = document.getElementById('photo-credits-modal');
             if (existing) existing.remove();
 
+            const isBhSource = (img) => img.source === 'B&H Photo Video' || Boolean(img.bh_product_id);
+            const hasBhImages = product.images.some(isBhSource);
             const rows = product.images.map(img => {
                 const license = creditEscape(img.license || '');
                 const licenseUrl = img.license_url ? creditEscape(img.license_url) : '';
                 const sourceUrl = img.source_page_url ? creditEscape(img.source_page_url) : '';
                 const creator = creditEscape(img.creator || 'Unknown');
                 const title = creditEscape(img.source_title || '');
-                const required = img.attribution_required
-                    ? 'Attribution required.'
-                    : 'Attribution not legally required; credited voluntarily.';
+                const permission = creditEscape(img.permission_basis || '');
+                const isBh = isBhSource(img);
+                const required = isBh
+                    ? 'Credit displayed for this academic project; permission basis reported by the project owner.'
+                    : (img.attribution_required
+                        ? 'Attribution required.'
+                        : 'Attribution not legally required; credited voluntarily.');
                 return `
                     <li class="rounded-2xl border border-[#EBD3D1] bg-[#FFF9F9] p-4">
                         <div class="flex items-start justify-between gap-3 mb-2">
@@ -581,13 +587,15 @@ const $ = (s, r = document) => r.querySelector(s);
                         </div>
                         <p class="text-sm font-semibold text-[#4A4A4A] mb-1">${creator}</p>
                         <p class="text-xs text-[#6F6262] mb-2">“${title}”</p>
+                        ${isBh && img.bh_product_id ? `<p class="text-xs text-[#6F6262] mb-2">B&amp;H product #${creditEscape(img.bh_product_id)}</p>` : ''}
                         <p class="text-xs text-[#6F6262] mb-2">
-                            License: ${licenseUrl
+                            ${isBh ? 'Rights' : 'License'}: ${licenseUrl
                                 ? `<a href="${licenseUrl}" target="_blank" rel="noopener noreferrer" class="text-[#9E4763] underline underline-offset-2">${license}</a>`
                                 : license}
-                            · ${creditEscape(required)}
+                            · ${required}
                         </p>
-                        ${sourceUrl ? `<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-[#9E4763] underline underline-offset-2">Source photograph on Wikimedia Commons</a>` : ''}
+                        ${isBh && permission ? `<p class="text-xs text-[#6F6262] mb-2">Permission basis: ${permission}</p>` : ''}
+                        ${sourceUrl ? `<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="text-xs font-medium text-[#9E4763] underline underline-offset-2">${isBh ? 'View B&amp;H product listing' : 'Source photograph on Wikimedia Commons'}</a>` : ''}
                     </li>
                 `;
             }).join('');
@@ -608,7 +616,7 @@ const $ = (s, r = document) => r.querySelector(s);
                             </div>
                             <button type="button" onclick="closePhotoCredits()" aria-label="Close photo credits" class="w-8 h-8 rounded-full hover:bg-[#FFF5F5] text-[#6F6262] text-xl leading-none">&times;</button>
                         </div>
-                        <p class="text-xs text-[#6F6262] mb-4 leading-relaxed">Photographs are used under the licences below. Every image is presented on a standard 1200 × 1200 canvas, resized without stretching and exported as WebP; the product itself is not retouched. Follow a source link to inspect the original file and its licence.</p>
+                        <p class="text-xs text-[#6F6262] mb-4 leading-relaxed">${hasBhImages ? 'B&amp;H photographs are used under the permission reported by the project owner for this academic website and are not Creative Commons. ' : ''}Every image is presented on a standard 1200 × 1200 canvas, resized without stretching and exported as WebP; the product itself is not retouched. Follow a source link to inspect the original file and its rights information.</p>
                         <ul class="space-y-3">${rows}</ul>
                     </div>
                 </div>
