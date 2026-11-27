@@ -19,12 +19,8 @@ app.use(express.json());
 // ============================================================
 // API TESTING NOTES
 // ============================================================
-// The core routes below have test cases TC-001 to TC-016. The search extensions
-// are documented as TC-017 to TC-019; TC-008B and TC-013B are additional
-// rubric examples for the two criteria-based admin searches.
-// Use a disposable local database for write and delete requests.
-// Send JSON with Content-Type: application/json and uploads as form-data.
-// สร้างโฟลเดอร์เก็บไฟล์รูปภาพจริงใน backend/uploads
+// The routes below have test cases TC-001 to TC-019, including search
+// examples for both products and administrators.
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -362,10 +358,10 @@ app.post('/api/auth/login', async (req, res) => {
 // {
 //   "first_name": "Test",
 //   "last_name": "Customer",
-//   "email": "new.customer@example.com",
+//   "email": "qa_customer@example.com",
 //   "phone": "0812345678",
 //   "address": "Bangkok",
-//   "username": "test_customer",
+//   "username": "qa_customer",
 //   "password": "TestPass123"
 // }
 //
@@ -507,7 +503,6 @@ app.post('/api/auth/register', async (req, res) => {
 // URL: http://localhost:3031/api/users
 // Method: GET
 // Body: None
-//
 // Expected Status: 200 OK
 // Expected Response Structure: JSON array of customer accounts
 // [
@@ -548,14 +543,13 @@ app.get('/api/users', async (req, res) => {
 // Method: PUT
 // Body: application/json
 // {
-//   "username": "customer_demo",
-//   "email": "customer@example.com",
-//   "first_name": "Updated",
+//   "username": "qa_customer",
+//   "first_name": "Test Updated",
 //   "last_name": "Customer",
-//   "phone": "081-234-5678",
+//   "email": "qa_customer@example.com",
+//   "phone": "0891234567",
 //   "address": "Bangkok"
 // }
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
@@ -720,60 +714,64 @@ app.get('/api/equipment-types', async (req, res) => {
 // maxPrice narrow the result set without changing the response shape. No
 // parameters returns all 80 products exactly as before.
 //
-// API TEST: TC-017 - Search Products by Name
-//
+
+// API TEST: TC-009 - Search Products by Name
 // URL: http://localhost:3031/api/products?search=Sony
 // Method: GET
 // Body: None
-//
 // Expected Status: 200 OK
 // Expected Response Structure: JSON array of matching equipment rows
 // [
-//   {
-//     "equipment_id": 1,
-//     "name": "Sony A7IV Mirrorless Camera",
-//     "brand": "Sony",
-//     "type": "Camera"
-//   }
+// {
+//         "equipment_id": 1,
+//         "admin_id": 1,
+//         "name": "Sony A7IV Mirrorless Camera",
+//         "type": "Camera",
+//         "brand": "Sony",
+//         "serial_number": "SNY-A74-001",
+//         "description": "Full-frame mirrorless camera for professional video and photo.",
+//         "image_url": null,
+//         "release_year": "2020-12-31T17:00:00.000Z",
+//         "model_series": "A7 Series",
+//         "status": "Available",
+//         "daily_rate": 1500,
+//         "main_image": "/uploads/camera-catalog/1-sony-a7iv-mirrorless-camera-bh-main.webp",
+//         "detail_images": "[\"/uploads/camera-catalog/1-sony-a7iv-alt.webp\",\"/uploads/camera-catalog/1-sony-a7iv-rear.webp\",\"/uploads/camera-catalog/1-sony-a7iv-top.webp\",\"/uploads/camera-catalog/1-sony-a7iv-main.webp\"]",
+//         "stock": 1
+// }
 // ]
-//
 // Description:
 // Searches product name, brand, type and description with a parameterized LIKE
 // clause. Matching is case-insensitive under the utf8mb4_unicode_ci collation.
-//
-// API TEST: TC-018 - Filter Products by Category
-//
+
+// API TEST: TC-010 - Filter Products by Category
 // URL: http://localhost:3031/api/products?type=Lens
 // Method: GET
 // Body: None
-//
 // Expected Status: 200 OK
 // Expected Response Structure: JSON array containing only Lens rows
 // [
 //   {
 //     "equipment_id": 15,
+//     "admin_id": 1,
 //     "name": "Sony FE 16-35mm f/2.8 GM II",
-//     "type": "Lens"
+//     "type": "Lens",
+//     "brand": "Sony",
+//     "serial_number": "LNS-SNY-001",
+//     "description": "Full-frame E-mount wide-angle zoom, 16-35mm f/2.8 G Master II. Suitable for landscape, architecture and gimbal work. Mount: Sony E. Coverage: Full-frame. Demonstration rental price.",
+//     "image_url": null,
+//     "release_year": "2021-12-31T17:00:00.000Z",
+//     "model_series": "G Master",
+//     "status": "Available",
+//     "daily_rate": 1200,
+//     "main_image": "/uploads/lens-catalog/15-sony-fe-16-35mm-f-2-8-gm-ii-bh-main.webp",
+//     "detail_images": "[\"/uploads/lens-catalog/15-sony-16-35-gm2-detail2.webp\",\"/uploads/lens-catalog/15-sony-16-35-gm2-detail3.webp\",\"/uploads/lens-catalog/15-sony-16-35-gm2-main.webp\"]",
+//     "stock": 1
 //   }
 // ]
-//
 // Description:
 // Filters products by the exact equipment type. Type can be combined with
 // search, brand, minPrice and maxPrice.
-//
-// API TEST: TC-008B - Product Search with Criteria
-//
-// URL: http://localhost:3031/api/products?type=Lens&brand=Canon
-// Method: GET
-// Body: None
-//
-// Expected Status: 200 OK
-// Expected Response Structure: JSON array containing only Canon lenses
-//
-// Description:
-// Verifies server-side filtering with two criteria. Both criteria are bound as
-// SQL parameters; no user input is concatenated into the query.
-//
 
 function parseOptionalNonNegativeNumber(value) {
     if (value === undefined || value === null || String(value).trim() === '') return null;
@@ -831,37 +829,33 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// API TEST: TC-009 - Create Product
-//
+// API TEST: TC-011 - Create Product
 // URL: http://localhost:3031/api/products
 // Method: POST
 // Body: application/json
 // {
 //   "admin_id": 1,
-//   "name": "Test Rental Lens",
-//   "type": "Lens",
-//   "brand": "Test",
-//   "serial_number": "TEST-LENS-001",
-//   "description": "Disposable product created for API testing.",
-//   "model_series": "Test",
+//   "name": "QA LED Light",
+//   "type": "Continuous Light",
+//   "brand": "Demo",
+//   "serial_number": "QA-LED-001",
+//   "description": "Test equipment",
+//   "model_series": "QA",
 //   "status": "Available",
-//   "daily_rate": 500,
-//   "main_image": null,
-//   "detail_images": [],
-//   "stock": 1
+//   "daily_rate": 300,
+//   "stock": 2
 // }
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
 //   "success": true,
 //   "message": "เพิ่มอุปกรณ์ใหม่สำเร็จ"
+//   "equipment_id": 81
 // }
-//
 // Description:
 // Validates the name, type and positive daily rate, allocates the next
 // equipment_id, and inserts one EQUIPMENT row.
-//
+
 
 app.post('/api/products', async (req, res) => {
     const {
@@ -922,36 +916,31 @@ app.post('/api/products', async (req, res) => {
     }
 });
 
-// API TEST: TC-010 - Update Product
-//
-// URL: http://localhost:3031/api/products/45
+// API TEST: TC-012 - Update Product
+// URL: http://localhost:3031/api/products/81
 // Method: PUT
 // Body: application/json
 // {
-//   "name": "Test Rental Lens",
-//   "type": "Lens",
-//   "brand": "Test",
-//   "serial_number": "TEST-LENS-001",
-//   "description": "Updated disposable product.",
-//   "model_series": "Test",
+//   "name": "QA LED Light",
+//   "type": "Continuous Light",
+//   "brand": "Demo",
+//   "serial_number": "QA-LED-001",
+//   "description": "Test equipment",
+//   "model_series": "QA",
 //   "status": "Available",
-//   "daily_rate": 550,
-//   "main_image": null,
-//   "detail_images": [],
-//   "stock": 1
+//   "daily_rate": 350,
+//   "stock": 2
 // }
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
 //   "success": true,
 //   "message": "อัปเดตข้อมูลอุปกรณ์สำเร็จ"
 // }
-//
 // Description:
 // Updates an existing equipment row. A missing product returns 404 and stock
 // values are clamped to zero or above.
-//
+
 
 app.put('/api/products/:id', async (req, res) => {
     const { id } = req.params;
@@ -1020,23 +1009,19 @@ app.put('/api/products/:id', async (req, res) => {
     }
 });
 
-// API TEST: TC-011 - Delete Product
-//
-// URL: http://localhost:3031/api/products/45
+// API TEST: TC-013 - Delete Product
+// URL: http://localhost:3031/api/products/88
 // Method: DELETE
 // Body: None
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
 //   "success": true,
 //   "message": "ลบอุปกรณ์ออกจากระบบแล้ว"
 // }
-//
 // Description:
 // Deletes one disposable equipment row by equipment_id. A row referenced by
 // ITEM returns 500 because of the foreign key.
-//
 
 app.delete('/api/products/:id', async (req, res) => {
     const { id } = req.params;
@@ -1051,8 +1036,8 @@ app.delete('/api/products/:id', async (req, res) => {
 // ============================================================================
 // 6. RENTAL / BOOKING API (WITH TRANSACTION & STOCK CONCURRENCY LOCK)
 // ============================================================================
-// API TEST: TC-012 - Successful Rental API Request
-//
+
+// API TEST: TC-014 - Successful Rental API Request
 // URL: http://localhost:3031/api/rentals
 // Method: POST
 // Body: application/json
@@ -1062,29 +1047,26 @@ app.delete('/api/products/:id', async (req, res) => {
 //   "start_date": "2026-12-01",
 //   "return_date": "2026-12-03"
 // }
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
 //   "success": true,
 //   "message": "ทำรายการเช่าสำเร็จ",
 //   "rental": {
-//     "rental_id": 123456,
-//     "product_name": "Sony ZV-E10 II Vlogging Camera",
+//     "rental_id": 882570,
+//     "product_name": "Sony A6S III Mirrorless Camera",
 //     "start_date": "2026-12-01",
 //     "return_date": "2026-12-03",
 //     "rental_days": 2,
-//     "daily_rate": 750,
-//     "total_price": 1500,
-//     "deposit": 500,
+//     "daily_rate": 1800,
+//     "total_price": 3600,
+//     "deposit": 1080,
 //     "status": "Confirmed"
 //   }
 // }
-//
 // Description:
 // Checks that the equipment is available, calculates days, price and deposit,
 // and reduces stock inside a transaction. It does not insert a RENTAL row.
-//
 
 app.post('/api/rentals', async (req, res) => {
     const { account_id, equipment_id, start_date, return_date } = req.body;
@@ -1153,12 +1135,11 @@ app.post('/api/rentals', async (req, res) => {
 // ============================================================================
 // 7. ADMINS MANAGEMENT
 // ============================================================================
-// API TEST: TC-013 - List Administrators
-//
+
+// API TEST: TC-015 - List Admins
 // URL: http://localhost:3031/api/admins
 // Method: GET
 // Body: None
-//
 // Expected Status: 200 OK
 // Expected Response Structure: JSON array of administrator accounts
 // [
@@ -1173,48 +1154,34 @@ app.post('/api/rentals', async (req, res) => {
 //     "address": "Bangkok"
 //   }
 // ]
-//
 // Description:
 // Returns all accounts whose role is Admin. Optional search, username and email
 // query parameters narrow the result set. Passwords are never selected.
-//
-// API TEST: TC-019 - Search Admin by Name
-//
+
+// API TEST: TC-016 - Search Admin by Name
 // URL: http://localhost:3031/api/admins?search=Demo
 // Method: GET
 // Body: None
-//
 // Expected Status: 200 OK
 // Expected Response Structure: JSON array of matching Admin rows
 // [
 //   {
 //     "admin_id": 1,
+//     "account_id": 1,
+//     "username": "admin_demo",
 //     "first_name": "Demo",
 //     "last_name": "Admin",
-//     "age": 30
+//     "age": 30,
+//     "email": "admin@example.com",
+//     "address": "Bangkok"
 //   }
 // ]
-//
 // Description:
 // Searches first name, last name, full name, username and email with
 // parameterized SQL. The current route is not protected by a session; it exposes
 // only non-sensitive Admin profile fields and never password material. If
 // authentication is added later, callers must supply the same credentials as the
 // rest of the Admin API; no secret is hardcoded in this test.
-//
-// API TEST: TC-013B - Admin Search with Criteria
-//
-// URL: http://localhost:3031/api/admins?search=Demo
-// Method: GET
-// Body: None
-//
-// Expected Status: 200 OK
-// Expected Response Structure: JSON array containing matching Admin accounts
-//
-// Description:
-// Verifies server-side Admin search without exposing passwords. The response may
-// also be filtered with username=... or email=...
-//
 
 app.get('/api/admins', async (req, res) => {
     try {
@@ -1252,31 +1219,26 @@ app.get('/api/admins', async (req, res) => {
     }
 });
 
-// API TEST: TC-014 - Create Administrator
-//
+// API TEST: TC-017 - Create Administrator
 // URL: http://localhost:3031/api/admins
 // Method: POST
 // Body: application/json
 // {
-//   "username": "test_admin",
-//   "password": "TestAdmin123",
+//   "username": "qa_admin",
+//   "password": "Test1234",
 //   "first_name": "Test",
 //   "last_name": "Admin",
-//   "age": 30,
-//   "email": "test.admin@example.com",
+//   "email": "qa_admin@example.com",
 //   "address": "Bangkok"
 // }
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
 //   "success": true,
 //   "message": "เพิ่มผู้ดูแลระบบ (Admin) สำเร็จ"
 // }
-//
 // Description:
 // Creates a new USER_ACCOUNT row with role Admin and its matching ADMIN row.
-//
 
 app.post('/api/admins', async (req, res) => {
     const { username, password, first_name, last_name, email, address, age } = req.body;
@@ -1311,8 +1273,7 @@ app.post('/api/admins', async (req, res) => {
     }
 });
 
-// API TEST: TC-015 - Update Administrator
-//
+// API TEST: TC-018 - Update Administrator
 // URL: http://localhost:3031/api/admins/3
 // Method: PUT
 // Body: application/json
@@ -1325,18 +1286,15 @@ app.post('/api/admins', async (req, res) => {
 //   "email": "test.admin@example.com",
 //   "address": "Bangkok"
 // }
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
 //   "success": true,
 //   "message": "อัปเดตข้อมูล Admin สำเร็จ"
 // }
-//
 // Description:
 // Updates the admin username and profile. The password is changed only when a
 // non-empty password is supplied.
-//
 
 app.put('/api/admins/:accountId', async (req, res) => {
     const { accountId } = req.params;
@@ -1369,23 +1327,19 @@ app.put('/api/admins/:accountId', async (req, res) => {
     }
 });
 
-// API TEST: TC-016 - Delete Administrator
-//
+// API TEST: TC-019 - Delete Administrator
 // URL: http://localhost:3031/api/admins/3
 // Method: DELETE
 // Body: None
-//
 // Expected Status: 200 OK
 // Expected Response Structure:
 // {
 //   "success": true,
 //   "message": "ลบ Admin เรียบร้อยแล้ว"
 // }
-//
 // Description:
 // Deletes a disposable administrator, its LOGIN rows and USER_ACCOUNT row. The
 // route refuses to delete the last remaining admin.
-//
 
 app.delete('/api/admins/:accountId', async (req, res) => {
     const { accountId } = req.params;
