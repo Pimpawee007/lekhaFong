@@ -916,7 +916,7 @@ app.post('/api/products', async (req, res) => {
                 stockVal
             ]
         );
-        res.json({ success: true, message: 'เพิ่มอุปกรณ์ใหม่สำเร็จ' });
+        res.json({ success: true, message: 'เพิ่มอุปกรณ์ใหม่สำเร็จ',equipment_id: nextId});
     } catch (err) {
         res.status(500).json({ success: false, message: 'ไม่สามารถเพิ่มอุปกรณ์ได้: ' + err.message });
     }
@@ -1239,8 +1239,8 @@ app.get('/api/admins', async (req, res) => {
         }
 
         const [rows] = await db.query(`
-            SELECT a.admin_id, a.account_id, u.username, a.first_name, a.last_name,
-                   a.age, a.email, a.address
+            SELECT  a.admin_id, a.account_id, u.username, a.first_name, a.last_name,
+                    a.age, a.email, a.address
             FROM ADMIN a
             JOIN USER_ACCOUNT u ON a.account_id = u.account_id
             WHERE ${conditions.join(' AND ')}
