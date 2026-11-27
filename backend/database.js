@@ -19,7 +19,9 @@ app.use(express.json());
 // ============================================================
 // API TESTING NOTES
 // ============================================================
-// Each of the 16 routes below has exactly one test case, TC-001 to TC-016.
+// The core routes below have test cases TC-001 to TC-016. The search extensions
+// are documented as TC-017 to TC-019; TC-008B and TC-013B are additional
+// rubric examples for the two criteria-based admin searches.
 // Use a disposable local database for write and delete requests.
 // Send JSON with Content-Type: application/json and uploads as form-data.
 // สร้างโฟลเดอร์เก็บไฟล์รูปภาพจริงใน backend/uploads
@@ -114,7 +116,7 @@ const db = mysql.createPool({
                 mismatches.forEach(message => console.warn('  - ' + message));
                 console.warn('  Registration with text passwords or Thai phone numbers can fail with ER_TRUNCATED_WRONG_VALUE_FOR_FIELD.');
                 console.warn('  Back up the database, then apply migrations/2026-11-26-align-registration-schema.sql manually.');
-                console.warn('  Do NOT rerun lekhafong_production.sql; it starts with DROP DATABASE.');
+                console.warn('  Do NOT rerun lekhafong_production.sql on an existing database; it is a fresh-install script.');
             }
         } catch (schemaErr) {
             console.warn('Schema compatibility check skipped:', schemaErr.code || schemaErr.message);
@@ -165,6 +167,19 @@ function normalizeDetailImagesInput(value) {
 
 function isValidEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+// Age is optional. An empty value is stored as NULL; any supplied value must be
+// an integer from 18 to 120 so the database CHECK constraint and API agree.
+function parseOptionalAge(value) {
+    if (value === undefined || value === null || String(value).trim() === '') {
+        return { value: null };
+    }
+    const age = Number(value);
+    if (!Number.isInteger(age) || age < 18 || age > 120) {
+        return { error: 'อายุต้องเป็นจำนวนเต็มระหว่าง 18 ถึง 120 ปี' };
+    }
+    return { value: age };
 }
 
 // Extract only the column name from a MySQL error message. The full message
@@ -701,12 +716,115 @@ app.get('/api/equipment-types', async (req, res) => {
 //
 // Description:
 // Returns every equipment record, including the camera and lens catalog, ordered
-// by equipment_id.
+// by equipment_id. Optional query parameters search, brand, type, minPrice and
+// maxPrice narrow the result set without changing the response shape. No
+// parameters returns all 80 products exactly as before.
 //
+// API TEST: TC-017 - Search Products by Name
+//
+// URL: http://localhost:3031/api/products?search=Sony
+// Method: GET
+// Body: None
+//
+// Expected Status: 200 OK
+// Expected Response Structure: JSON array of matching equipment rows
+// [
+//   {
+//     "equipment_id": 1,
+//     "name": "Sony A7IV Mirrorless Camera",
+//     "brand": "Sony",
+//     "type": "Camera"
+//   }
+// ]
+//
+// Description:
+// Searches product name, brand, type and description with a parameterized LIKE
+// clause. Matching is case-insensitive under the utf8mb4_unicode_ci collation.
+//
+// API TEST: TC-018 - Filter Products by Category
+//
+// URL: http://localhost:3031/api/products?type=Lens
+// Method: GET
+// Body: None
+//
+// Expected Status: 200 OK
+// Expected Response Structure: JSON array containing only Lens rows
+// [
+//   {
+//     "equipment_id": 15,
+//     "name": "Sony FE 16-35mm f/2.8 GM II",
+//     "type": "Lens"
+//   }
+// ]
+//
+// Description:
+// Filters products by the exact equipment type. Type can be combined with
+// search, brand, minPrice and maxPrice.
+//
+// API TEST: TC-008B - Product Search with Criteria
+//
+// URL: http://localhost:3031/api/products?type=Lens&brand=Canon
+// Method: GET
+// Body: None
+//
+// Expected Status: 200 OK
+// Expected Response Structure: JSON array containing only Canon lenses
+//
+// Description:
+// Verifies server-side filtering with two criteria. Both criteria are bound as
+// SQL parameters; no user input is concatenated into the query.
+//
+
+function parseOptionalNonNegativeNumber(value) {
+    if (value === undefined || value === null || String(value).trim() === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : NaN;
+}
 
 app.get('/api/products', async (req, res) => {
     try {
-        const [rows] = await db.query('SELECT * FROM EQUIPMENT ORDER BY equipment_id ASC');
+        const search = String(req.query.search || '').trim();
+        const brand = String(req.query.brand || '').trim();
+        const type = String(req.query.type || '').trim();
+        const minPrice = parseOptionalNonNegativeNumber(req.query.minPrice);
+        const maxPrice = parseOptionalNonNegativeNumber(req.query.maxPrice);
+
+        if (Number.isNaN(minPrice) || Number.isNaN(maxPrice)) {
+            return res.status(400).json({ success: false, message: 'minPrice และ maxPrice ต้องเป็นตัวเลขที่ไม่ติดลบ' });
+        }
+        if (minPrice !== null && maxPrice !== null && minPrice > maxPrice) {
+            return res.status(400).json({ success: false, message: 'minPrice ต้องไม่มากกว่า maxPrice' });
+        }
+
+        const conditions = [];
+        const params = [];
+        if (search) {
+            const like = `%${search}%`;
+            conditions.push('(name LIKE ? OR brand LIKE ? OR type LIKE ? OR description LIKE ?)');
+            params.push(like, like, like, like);
+        }
+        if (brand) {
+            conditions.push('brand LIKE ?');
+            params.push(`%${brand}%`);
+        }
+        if (type) {
+            conditions.push('type = ?');
+            params.push(type);
+        }
+        if (minPrice !== null) {
+            conditions.push('daily_rate >= ?');
+            params.push(minPrice);
+        }
+        if (maxPrice !== null) {
+            conditions.push('daily_rate <= ?');
+            params.push(maxPrice);
+        }
+
+        const where = conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '';
+        const [rows] = await db.query(
+            `SELECT * FROM EQUIPMENT${where} ORDER BY equipment_id ASC`,
+            params
+        );
         res.json(rows);
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -1050,24 +1168,84 @@ app.post('/api/rentals', async (req, res) => {
 //     "username": "admin_demo",
 //     "first_name": "Demo",
 //     "last_name": "Admin",
+//     "age": 30,
 //     "email": "admin@example.com",
 //     "address": "Bangkok"
 //   }
 // ]
 //
 // Description:
-// Returns all accounts whose role is Admin.
+// Returns all accounts whose role is Admin. Optional search, username and email
+// query parameters narrow the result set. Passwords are never selected.
+//
+// API TEST: TC-019 - Search Admin by Name
+//
+// URL: http://localhost:3031/api/admins?search=Demo
+// Method: GET
+// Body: None
+//
+// Expected Status: 200 OK
+// Expected Response Structure: JSON array of matching Admin rows
+// [
+//   {
+//     "admin_id": 1,
+//     "first_name": "Demo",
+//     "last_name": "Admin",
+//     "age": 30
+//   }
+// ]
+//
+// Description:
+// Searches first name, last name, full name, username and email with
+// parameterized SQL. The current route is not protected by a session; it exposes
+// only non-sensitive Admin profile fields and never password material. If
+// authentication is added later, callers must supply the same credentials as the
+// rest of the Admin API; no secret is hardcoded in this test.
+//
+// API TEST: TC-013B - Admin Search with Criteria
+//
+// URL: http://localhost:3031/api/admins?search=Demo
+// Method: GET
+// Body: None
+//
+// Expected Status: 200 OK
+// Expected Response Structure: JSON array containing matching Admin accounts
+//
+// Description:
+// Verifies server-side Admin search without exposing passwords. The response may
+// also be filtered with username=... or email=...
 //
 
 app.get('/api/admins', async (req, res) => {
     try {
+        const search = String(req.query.search || '').trim();
+        const username = String(req.query.username || '').trim();
+        const email = String(req.query.email || '').trim();
+
+        const conditions = ["u.role = 'Admin'"];
+        const params = [];
+        if (search) {
+            const like = `%${search}%`;
+            conditions.push('(a.first_name LIKE ? OR a.last_name LIKE ? OR CONCAT(a.first_name, \' \', a.last_name) LIKE ? OR u.username LIKE ? OR a.email LIKE ?)');
+            params.push(like, like, like, like, like);
+        }
+        if (username) {
+            conditions.push('u.username LIKE ?');
+            params.push(`%${username}%`);
+        }
+        if (email) {
+            conditions.push('a.email LIKE ?');
+            params.push(`%${email}%`);
+        }
+
         const [rows] = await db.query(`
-            SELECT a.admin_id, a.account_id, u.username, a.first_name, a.last_name, a.email, a.address
+            SELECT a.admin_id, a.account_id, u.username, a.first_name, a.last_name,
+                   a.age, a.email, a.address
             FROM ADMIN a
             JOIN USER_ACCOUNT u ON a.account_id = u.account_id
-            WHERE u.role = 'Admin'
+            WHERE ${conditions.join(' AND ')}
             ORDER BY a.admin_id ASC
-        `);
+        `, params);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
@@ -1084,6 +1262,7 @@ app.get('/api/admins', async (req, res) => {
 //   "password": "TestAdmin123",
 //   "first_name": "Test",
 //   "last_name": "Admin",
+//   "age": 30,
 //   "email": "test.admin@example.com",
 //   "address": "Bangkok"
 // }
@@ -1100,9 +1279,13 @@ app.get('/api/admins', async (req, res) => {
 //
 
 app.post('/api/admins', async (req, res) => {
-    const { username, password, first_name, last_name, email, address } = req.body;
+    const { username, password, first_name, last_name, email, address, age } = req.body;
     if (!username || !password || !email || !first_name) {
         return res.status(400).json({ success: false, message: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน' });
+    }
+    const parsedAge = parseOptionalAge(age);
+    if (parsedAge.error) {
+        return res.status(400).json({ success: false, message: parsedAge.error });
     }
     const conn = await db.getConnection();
     try {
@@ -1116,7 +1299,7 @@ app.post('/api/admins', async (req, res) => {
         const nextAdminId = await getNextId(conn, 'ADMIN', 'admin_id');
 
         await conn.query('INSERT INTO USER_ACCOUNT (account_id, username, password, role) VALUES (?, ?, ?, ?)', [nextAccountId, username, String(password), 'Admin']);
-        await conn.query('INSERT INTO ADMIN (admin_id, account_id, first_name, last_name, email, address) VALUES (?, ?, ?, ?, ?, ?)', [nextAdminId, nextAccountId, first_name, last_name || '', email, address || '']);
+        await conn.query('INSERT INTO ADMIN (admin_id, account_id, first_name, last_name, email, address, age) VALUES (?, ?, ?, ?, ?, ?, ?)', [nextAdminId, nextAccountId, first_name, last_name || '', email, address || '', parsedAge.value]);
 
         await conn.commit();
         res.json({ success: true, message: 'เพิ่มผู้ดูแลระบบ (Admin) สำเร็จ' });
@@ -1138,6 +1321,7 @@ app.post('/api/admins', async (req, res) => {
 //   "password": "TestAdmin123",
 //   "first_name": "Updated",
 //   "last_name": "Admin",
+//   "age": 31,
 //   "email": "test.admin@example.com",
 //   "address": "Bangkok"
 // }
@@ -1156,7 +1340,12 @@ app.post('/api/admins', async (req, res) => {
 
 app.put('/api/admins/:accountId', async (req, res) => {
     const { accountId } = req.params;
-    const { username, password, first_name, last_name, email, address } = req.body;
+    const { username, password, first_name, last_name, email, address, age } = req.body;
+    const hasAge = Object.prototype.hasOwnProperty.call(req.body || {}, 'age');
+    const parsedAge = parseOptionalAge(age);
+    if (hasAge && parsedAge.error) {
+        return res.status(400).json({ success: false, message: parsedAge.error });
+    }
     const conn = await db.getConnection();
     try {
         await conn.beginTransaction();
@@ -1165,7 +1354,11 @@ app.put('/api/admins/:accountId', async (req, res) => {
         } else {
             await conn.query('UPDATE USER_ACCOUNT SET username = ? WHERE account_id = ?', [username, accountId]);
         }
-        await conn.query('UPDATE ADMIN SET first_name = ?, last_name = ?, email = ?, address = ? WHERE account_id = ?', [first_name, last_name || '', email, address || '', accountId]);
+        if (hasAge) {
+            await conn.query('UPDATE ADMIN SET first_name = ?, last_name = ?, email = ?, address = ?, age = ? WHERE account_id = ?', [first_name, last_name || '', email, address || '', parsedAge.value, accountId]);
+        } else {
+            await conn.query('UPDATE ADMIN SET first_name = ?, last_name = ?, email = ?, address = ? WHERE account_id = ?', [first_name, last_name || '', email, address || '', accountId]);
+        }
         await conn.commit();
         res.json({ success: true, message: 'อัปเดตข้อมูล Admin สำเร็จ' });
     } catch (err) {

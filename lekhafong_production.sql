@@ -16,6 +16,7 @@
 -- Catalog photographs are stored as paths under /uploads/. The image files must
 -- also be present in backend/uploads/; the SQL file does not store image binaries.
 -- Demo passwords are for local coursework only. Change them before any real use.
+-- ADMIN.age is optional and constrained to the range 18-120.
 -- ============================================================================
 
 CREATE DATABASE IF NOT EXISTS lekhafong_production
@@ -53,9 +54,11 @@ CREATE TABLE IF NOT EXISTS ADMIN (
     preferences TEXT NULL,
     address VARCHAR(100) NULL,
     email VARCHAR(100) NOT NULL,
+    age INT NULL,
     PRIMARY KEY (admin_id),
     KEY idx_admin_account (account_id),
-    CONSTRAINT fk_admin_account FOREIGN KEY (account_id) REFERENCES USER_ACCOUNT (account_id)
+    CONSTRAINT fk_admin_account FOREIGN KEY (account_id) REFERENCES USER_ACCOUNT (account_id),
+    CONSTRAINT chk_admin_age CHECK (age BETWEEN 18 AND 120)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. CUSTOMER
@@ -147,8 +150,10 @@ INSERT INTO USER_ACCOUNT (account_id, username, password, role) VALUES
 (1, 'admin_demo', 'DemoAdmin123', 'Admin'),
 (2, 'customer_demo', 'DemoCustomer123', 'Customer');
 
-INSERT INTO ADMIN (admin_id, account_id, first_name, last_name, preferences, address, email) VALUES
-(1, 1, 'Demo', 'Admin', 'Dark Mode', 'Bangkok', 'admin@example.com');
+-- Age 30 is sample demonstration data for the fictional Demo Admin only. It is
+-- not a real person's age and existing production Admins may keep age NULL.
+INSERT INTO ADMIN (admin_id, account_id, first_name, last_name, preferences, address, email, age) VALUES
+(1, 1, 'Demo', 'Admin', 'Dark Mode', 'Bangkok', 'admin@example.com', 30);
 
 INSERT INTO CUSTOMER (customer_id, account_id, id_card_number, first_name, last_name, email, address, phone) VALUES
 (1, 2, NULL, 'Demo', 'Customer', 'customer@example.com', 'Bangkok', '0812345678');

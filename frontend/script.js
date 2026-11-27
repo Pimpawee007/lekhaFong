@@ -195,6 +195,16 @@ const $ = (s, r = document) => r.querySelector(s);
         let adminUsersCache = [];
         let adminProductsCache = [];
         let adminListCache = [];
+        let adminProductSearchTimer = null;
+        let adminAdminSearchTimer = null;
+        let adminProductSearchSeq = 0;
+        let adminAdminSearchSeq = 0;
+        let adminProductSearchController = null;
+        let adminAdminSearchController = null;
+        const THAI_HOLIDAY_API_BASE = 'https://randomapi.dev/api/holidays';
+        const THAI_HOLIDAY_COUNTRY = 'TH';
+        const thaiHolidayCache = new Map();
+        let holidayWarningSeq = 0;
         const BACKEND_ORIGIN = 'http://localhost:3031';
         let equipmentTypesCache = [];
         let pendingRentalDraft = null;
@@ -776,7 +786,11 @@ const $ = (s, r = document) => r.querySelector(s);
                 }
                 showToast(data.message || 'เพิ่มอุปกรณ์ใหม่สำเร็จ', 'success');
                 await apiFetchProducts();
-                renderAdminProductsTable();
+                if (adminProductFiltersActive()) {
+                    await apiAdminFetchProducts();
+                } else {
+                    renderAdminProductsTable();
+                }
                 backToProductList();
             } catch (err) {
                 showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
@@ -797,7 +811,11 @@ const $ = (s, r = document) => r.querySelector(s);
                 }
                 showToast(data.message || 'อัปเดตข้อมูลอุปกรณ์สำเร็จ', 'success');
                 await apiFetchProducts();
-                renderAdminProductsTable();
+                if (adminProductFiltersActive()) {
+                    await apiAdminFetchProducts();
+                } else {
+                    renderAdminProductsTable();
+                }
                 backToProductList();
             } catch (err) {
                 showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
@@ -818,7 +836,11 @@ const $ = (s, r = document) => r.querySelector(s);
                         }
                         showToast(data.message || 'ลบอุปกรณ์เรียบร้อยแล้ว', 'success');
                         await apiFetchProducts();
-                        renderAdminProductsTable();
+                        if (adminProductFiltersActive()) {
+                            await apiAdminFetchProducts();
+                        } else {
+                            renderAdminProductsTable();
+                        }
                         backToProductList();
                     } catch (err) {
                         showToast('ไม่สามารถเชื่อมต่อฐานข้อมูลได้', 'error');
@@ -881,15 +903,164 @@ const $ = (s, r = document) => r.querySelector(s);
             );
         }
 
-        // ---------------- API จัดการผู้ดูแลระบบ (ADMIN) ----------------
-        async function apiAdminFetchAdmins() {
+        // ---------------- Admin search helpers ----------------
+        function getAdminProductFilters() {
+            return {
+                search: (document.getElementById('admin-product-search')?.value || '').trim(),
+                type: document.getElementById('admin-product-type-filter')?.value || '',
+                minPrice: (document.getElementById('admin-product-min-price')?.value || '').trim(),
+                maxPrice: (document.getElementById('admin-product-max-price')?.value || '').trim()
+            };
+        }
+
+        function adminProductFiltersActive(filters = getAdminProductFilters()) {
+            return Boolean(filters.search || filters.type || filters.minPrice || filters.maxPrice);
+        }
+
+        function setAdminProductSearchStatus(message, tone = 'muted') {
+            const el = document.getElementById('admin-product-search-status');
+            if (!el) return;
+            el.textContent = message;
+            el.className = `text-xs mt-2 min-h-[1rem] ${tone === 'error' ? 'text-red-600' : tone === 'success' ? 'text-green-700' : 'text-[#6F6262]'}`;
+        }
+
+        async function apiAdminFetchProducts(filters) {
+            const current = filters || getAdminProductFilters();
+            const seq = ++adminProductSearchSeq;
+            if (adminProductSearchController) adminProductSearchController.abort();
+            const controller = new AbortController();
+            adminProductSearchController = controller;
+
+            const params = new URLSearchParams();
+            if (current.search) params.set('search', current.search);
+            if (current.type) params.set('type', current.type);
+            if (current.minPrice !== '') params.set('minPrice', current.minPrice);
+            if (current.maxPrice !== '') params.set('maxPrice', current.maxPrice);
+
+            const tbody = document.getElementById('admin-products-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6F6262]"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังค้นหาสินค้า...</td></tr>';
+            }
+            setAdminProductSearchStatus('กำลังค้นหาสินค้า...');
+
             try {
-                const res = await fetch(`${API_BASE_URL}/admins`);
-                if (!res.ok) throw new Error('Failed to fetch admins');
-                adminListCache = await res.json();
-                renderAdminListTable();
+                const query = params.toString();
+                const res = await fetch(`${API_BASE_URL}/products${query ? `?${query}` : ''}`, { signal: controller.signal });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.message || `HTTP ${res.status}`);
+                }
+                const rows = await res.json();
+                if (seq !== adminProductSearchSeq) return;
+                adminProductsCache = Array.isArray(rows) ? rows : [];
+                if (!adminProductFiltersActive(current)) {
+                    P = adminProductsCache.map(mapEquipmentToProduct);
+                }
+                renderAdminProductsTable();
+                if (!adminProductsCache.length) {
+                    setAdminProductSearchStatus('ไม่พบสินค้าที่ตรงกับเงื่อนไข');
+                } else {
+                    setAdminProductSearchStatus(`พบ ${adminProductsCache.length} รายการ`, 'success');
+                }
             } catch (err) {
-                showToast('ไม่สามารถดึงข้อมูล Admin ได้', 'error');
+                if (err.name === 'AbortError') return;
+                if (seq !== adminProductSearchSeq) return;
+                console.error('Admin product search error:', err);
+                setAdminProductSearchStatus(err.message || 'ไม่สามารถค้นหาสินค้าได้ในขณะนี้', 'error');
+                renderAdminProductsTable();
+                showToast('ไม่สามารถค้นหาสินค้าได้ในขณะนี้', 'error');
+            }
+        }
+
+        function scheduleAdminProductSearch() {
+            clearTimeout(adminProductSearchTimer);
+            adminProductSearchTimer = setTimeout(() => apiAdminFetchProducts(), 300);
+        }
+
+        function setAdminAdminSearchStatus(message, tone = 'muted') {
+            const el = document.getElementById('admin-admin-search-status');
+            if (!el) return;
+            el.textContent = message;
+            el.className = `text-xs mt-2 min-h-[1rem] ${tone === 'error' ? 'text-red-600' : tone === 'success' ? 'text-green-700' : 'text-[#6F6262]'}`;
+        }
+
+        // ---------------- API จัดการผู้ดูแลระบบ (ADMIN) ----------------
+        async function apiAdminFetchAdmins(searchText) {
+            const search = searchText === undefined
+                ? (document.getElementById('admin-admin-search')?.value || '').trim()
+                : String(searchText).trim();
+            const seq = ++adminAdminSearchSeq;
+            if (adminAdminSearchController) adminAdminSearchController.abort();
+            const controller = new AbortController();
+            adminAdminSearchController = controller;
+
+            const params = new URLSearchParams();
+            if (search) params.set('search', search);
+
+            const tbody = document.getElementById('admin-list-tbody');
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-[#6F6262]"><i class="fa-solid fa-spinner fa-spin mr-2"></i>กำลังค้นหา Admin...</td></tr>';
+            }
+            setAdminAdminSearchStatus('กำลังค้นหา Admin...');
+
+            try {
+                const query = params.toString();
+                const res = await fetch(`${API_BASE_URL}/admins${query ? `?${query}` : ''}`, { signal: controller.signal });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.message || `HTTP ${res.status}`);
+                }
+                const rows = await res.json();
+                if (seq !== adminAdminSearchSeq) return;
+                adminListCache = Array.isArray(rows) ? rows : [];
+                renderAdminListTable();
+                if (!adminListCache.length) {
+                    setAdminAdminSearchStatus('ไม่พบ Admin ที่ตรงกับเงื่อนไข');
+                } else {
+                    setAdminAdminSearchStatus(`พบ ${adminListCache.length} รายการ`, 'success');
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                if (seq !== adminAdminSearchSeq) return;
+                console.error('Admin search error:', err);
+                setAdminAdminSearchStatus(err.message || 'ไม่สามารถค้นหา Admin ได้ในขณะนี้', 'error');
+                renderAdminListTable();
+                showToast('ไม่สามารถค้นหา Admin ได้ในขณะนี้', 'error');
+            }
+        }
+
+        function scheduleAdminAdminSearch() {
+            clearTimeout(adminAdminSearchTimer);
+            adminAdminSearchTimer = setTimeout(() => apiAdminFetchAdmins(), 300);
+        }
+
+        function initAdminSearchControls() {
+            const productSearch = document.getElementById('admin-product-search');
+            if (productSearch && !productSearch.dataset.searchBound) {
+                productSearch.dataset.searchBound = '1';
+                productSearch.addEventListener('input', scheduleAdminProductSearch);
+                document.getElementById('admin-product-min-price')?.addEventListener('input', scheduleAdminProductSearch);
+                document.getElementById('admin-product-max-price')?.addEventListener('input', scheduleAdminProductSearch);
+                document.getElementById('admin-product-type-filter')?.addEventListener('change', scheduleAdminProductSearch);
+                document.getElementById('admin-product-search-clear')?.addEventListener('click', () => {
+                    const fields = ['admin-product-search', 'admin-product-type-filter', 'admin-product-min-price', 'admin-product-max-price'];
+                    fields.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = '';
+                    });
+                    apiAdminFetchProducts();
+                });
+            }
+
+            const adminSearch = document.getElementById('admin-admin-search');
+            if (adminSearch && !adminSearch.dataset.searchBound) {
+                adminSearch.dataset.searchBound = '1';
+                adminSearch.addEventListener('input', scheduleAdminAdminSearch);
+                document.getElementById('admin-admin-search-clear')?.addEventListener('click', () => {
+                    const input = document.getElementById('admin-admin-search');
+                    if (input) input.value = '';
+                    apiAdminFetchAdmins('');
+                });
             }
         }
 
@@ -1716,6 +1887,8 @@ const $ = (s, r = document) => r.querySelector(s);
                             </div>
                         </div>
 
+                        <div id="holiday-warning" class="hidden mb-5" role="status" aria-live="polite"></div>
+
                         <div id="rental-estimate" data-product-id="${p.id}" class="text-xs bg-[#FFF5F5] border border-[#EBD3D1] rounded-xl px-3.5 py-2.5 mb-5 text-[#6F6262]">
                             เลือกวันรับ–คืนเพื่อดูยอดรวมโดยประมาณ
                         </div>
@@ -1743,8 +1916,9 @@ const $ = (s, r = document) => r.querySelector(s);
             setTimeout(async () => {
                 await apiFetchEquipmentTypes();
                 apiAdminFetchUsers();
-                apiFetchProducts().then(() => renderAdminProductsTable());
+                await apiAdminFetchProducts();
                 apiAdminFetchAdmins();
+                initAdminSearchControls();
             }, 0);
 
             const me = state.userProfile || {};
@@ -1859,6 +2033,34 @@ const $ = (s, r = document) => r.querySelector(s);
                                     <button type="button" onclick="showAddProduct()" class="px-4 py-2 bg-[#BF4B72] hover:bg-[#A63C61] text-white rounded-full font-bold shadow transition flex items-center gap-2 text-xs">
                                         <i class="fa-solid fa-plus"></i> Add Product
                                     </button>
+                                </div>
+
+                                <div class="bg-[#FFF5F5] border border-[#EBD3D1] rounded-2xl p-4 mb-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                        <div class="md:col-span-4">
+                                            <label for="admin-product-search" class="block text-xs font-semibold text-[#6F6262] mb-1.5">ค้นหาสินค้า</label>
+                                            <input type="search" id="admin-product-search" placeholder="ค้นหาสินค้า ชื่อสินค้า แบรนด์ หรือประเภท..." class="w-full bg-white border border-[#D9B5BA] rounded-xl px-3.5 py-2.5 text-sm text-[#4A4A4A]">
+                                        </div>
+                                        <div class="md:col-span-3">
+                                            <label for="admin-product-type-filter" class="block text-xs font-semibold text-[#6F6262] mb-1.5">ประเภท</label>
+                                            <select id="admin-product-type-filter" class="w-full bg-white border border-[#D9B5BA] rounded-xl px-3.5 py-2.5 text-sm text-[#4A4A4A]">
+                                                <option value="">ทุกประเภท</option>
+                                                ${typeOptionsHtml}
+                                            </select>
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label for="admin-product-min-price" class="block text-xs font-semibold text-[#6F6262] mb-1.5">ราคาต่ำสุด</label>
+                                            <input type="number" min="0" id="admin-product-min-price" placeholder="เช่น 500" class="w-full bg-white border border-[#D9B5BA] rounded-xl px-3.5 py-2.5 text-sm text-[#4A4A4A]">
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label for="admin-product-max-price" class="block text-xs font-semibold text-[#6F6262] mb-1.5">ราคาสูงสุด</label>
+                                            <input type="number" min="0" id="admin-product-max-price" placeholder="เช่น 1500" class="w-full bg-white border border-[#D9B5BA] rounded-xl px-3.5 py-2.5 text-sm text-[#4A4A4A]">
+                                        </div>
+                                        <div class="md:col-span-1 flex items-end">
+                                            <button type="button" id="admin-product-search-clear" class="w-full px-3 py-2.5 rounded-xl border border-[#BF4B72] text-[#BF4B72] hover:bg-[#F9E3EA] text-xs font-bold transition">ล้าง</button>
+                                        </div>
+                                    </div>
+                                    <p id="admin-product-search-status" class="text-xs text-[#6F6262] mt-2 min-h-[1rem]" role="status" aria-live="polite"></p>
                                 </div>
 
                                 <div id="product-list-view" class="overflow-x-auto rounded-xl border border-[#EBD3D1]">
@@ -2020,6 +2222,16 @@ const $ = (s, r = document) => r.querySelector(s);
                                         <i class="fa-solid fa-user-plus"></i> Add Admin
                                     </button>
                                 </div>
+                                <div class="bg-[#FFF5F5] border border-[#EBD3D1] rounded-2xl p-4 mb-4">
+                                    <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
+                                        <div class="flex-1">
+                                            <label for="admin-admin-search" class="block text-xs font-semibold text-[#6F6262] mb-1.5">ค้นหา Admin</label>
+                                            <input type="search" id="admin-admin-search" placeholder="ค้นหา Username ชื่อ นามสกุล หรืออีเมล..." class="w-full bg-white border border-[#D9B5BA] rounded-xl px-3.5 py-2.5 text-sm text-[#4A4A4A]">
+                                        </div>
+                                        <button type="button" id="admin-admin-search-clear" class="px-5 py-2.5 rounded-xl border border-[#BF4B72] text-[#BF4B72] hover:bg-[#F9E3EA] text-xs font-bold transition">ล้าง</button>
+                                    </div>
+                                    <p id="admin-admin-search-status" class="text-xs text-[#6F6262] mt-2 min-h-[1rem]" role="status" aria-live="polite"></p>
+                                </div>
                                 <div id="admin-list-view" class="overflow-x-auto rounded-xl border border-[#EBD3D1]">
                                     <table class="w-full text-left border-collapse bg-white">
                                         <thead>
@@ -2027,12 +2239,13 @@ const $ = (s, r = document) => r.querySelector(s);
                                                 <th class="p-4">Admin ID</th>
                                                 <th class="p-4">Username</th>
                                                 <th class="p-4">ชื่อ-นามสกุล</th>
+                                                <th class="p-4">อายุ</th>
                                                 <th class="p-4">Email</th>
                                                 <th class="p-4 text-center">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody id="admin-list-tbody" class="text-sm divide-y divide-[#EBD3D1]">
-                                            <tr><td colspan="5" class="p-6 text-center text-[#6F6262]">กำลังโหลดข้อมูล...</td></tr>
+                                            <tr><td colspan="6" class="p-6 text-center text-[#6F6262]">กำลังโหลดข้อมูล...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -2059,6 +2272,10 @@ const $ = (s, r = document) => r.querySelector(s);
                                             <div>
                                                 <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">นามสกุล (Last Name)</label>
                                                 <input type="text" id="adm-lname" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">อายุ (Age)</label>
+                                                <input type="number" id="adm-age" min="18" max="120" step="1" placeholder="18-120 (ไม่บังคับ)" class="bg-white border border-[#D9B5BA] rounded-xl p-2.5 text-sm">
                                             </div>
                                             <div>
                                                 <label class="block text-xs font-semibold text-[#6F6262] mb-1.5">Password*</label>
@@ -2230,8 +2447,10 @@ const $ = (s, r = document) => r.querySelector(s);
         function renderAdminListTable() {
             const tbody = document.getElementById('admin-list-tbody');
             if (!tbody) return;
+            const searching = Boolean(document.getElementById('admin-admin-search')?.value.trim());
             if (!adminListCache.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-[#6F6262]">ยังไม่มีข้อมูล Admin</td></tr>';
+                const message = searching ? 'ไม่พบ Admin ที่ตรงกับเงื่อนไข' : 'ยังไม่มีข้อมูล Admin';
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-[#6F6262]">${message}</td></tr>`;
                 return;
             }
             tbody.innerHTML = adminListCache.map(a => `
@@ -2239,6 +2458,7 @@ const $ = (s, r = document) => r.querySelector(s);
                     <td class="p-4 font-medium">#${a.admin_id}</td>
                     <td class="p-4 font-semibold text-[#4A4A4A]">${a.username}</td>
                     <td class="p-4">${a.first_name || ''} ${a.last_name || ''}</td>
+                    <td class="p-4">${a.age ?? '-'}</td>
                     <td class="p-4">${a.email}</td>
                     <td class="p-4 text-center space-x-3">
                         <button type="button" onclick="openEditAdminForm(${a.account_id})" class="text-[#BF4B72] hover:underline font-semibold">Edit</button>
@@ -2253,7 +2473,7 @@ const $ = (s, r = document) => r.querySelector(s);
             document.getElementById('admin-form-view').classList.remove('hidden');
             document.getElementById('admin-form-title').textContent = 'เพิ่มผู้ดูแลระบบ (Add Admin)';
             document.getElementById('adm-edit-account-id').value = '';
-            ['adm-username', 'adm-email', 'adm-fname', 'adm-lname', 'adm-password', 'adm-confirm-password', 'adm-address']
+            ['adm-username', 'adm-email', 'adm-fname', 'adm-lname', 'adm-age', 'adm-password', 'adm-confirm-password', 'adm-address']
                 .forEach(id => document.getElementById(id).value = '');
         }
 
@@ -2268,6 +2488,7 @@ const $ = (s, r = document) => r.querySelector(s);
             document.getElementById('adm-email').value = a.email || '';
             document.getElementById('adm-fname').value = a.first_name || '';
             document.getElementById('adm-lname').value = a.last_name || '';
+            document.getElementById('adm-age').value = a.age ?? '';
             document.getElementById('adm-address').value = a.address || '';
             document.getElementById('adm-password').value = '';
             document.getElementById('adm-confirm-password').value = '';
@@ -2275,11 +2496,19 @@ const $ = (s, r = document) => r.querySelector(s);
 
         function submitAdminForm() {
             const editId = document.getElementById('adm-edit-account-id').value;
+            const ageRaw = document.getElementById('adm-age').value.trim();
+            const age = ageRaw === '' ? null : Number(ageRaw);
+            if (ageRaw !== '' && (!Number.isInteger(age) || age < 18 || age > 120)) {
+                showToast('อายุต้องเป็นจำนวนเต็มระหว่าง 18 ถึง 120 ปี', 'error');
+                document.getElementById('adm-age')?.focus();
+                return;
+            }
             const payload = {
                 username: document.getElementById('adm-username').value.trim(),
                 email: document.getElementById('adm-email').value.trim(),
                 first_name: document.getElementById('adm-fname').value.trim(),
                 last_name: document.getElementById('adm-lname').value.trim(),
+                age,
                 password: document.getElementById('adm-password').value,
                 confirmPassword: document.getElementById('adm-confirm-password').value,
                 address: document.getElementById('adm-address').value.trim()
@@ -2633,7 +2862,8 @@ const $ = (s, r = document) => r.querySelector(s);
             const tbody = document.getElementById('admin-products-tbody');
             if (!tbody) return;
             if (!adminProductsCache.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6F6262]">ยังไม่มีข้อมูลอุปกรณ์</td></tr>';
+                const message = adminProductFiltersActive() ? 'ไม่พบสินค้าที่ตรงกับเงื่อนไข' : 'ยังไม่มีข้อมูลอุปกรณ์';
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-[#6F6262]">${message}</td></tr>`;
                 return;
             }
             tbody.innerHTML = adminProductsCache.map(item => `
@@ -2806,6 +3036,150 @@ const $ = (s, r = document) => r.querySelector(s);
                 body: 'แสดงบัตรประชาชนตัวจริง (หรือหนังสือเดินทาง) ที่มีชื่อตรงกับผู้จองในวันรับอุปกรณ์ พร้อมลงนามในสัญญาเช่าและตรวจสภาพอุปกรณ์ร่วมกับเจ้าหน้าที่'
             }
         ];
+
+        const THAI_MONTHS = [
+            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+        ];
+
+        function formatThaiHolidayDate(dateStr) {
+            const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+            if (!match) return String(dateStr || '');
+            const month = THAI_MONTHS[Number(match[2]) - 1] || match[2];
+            return `${Number(match[3])} ${month} ${match[1]}`;
+        }
+
+        function escapeHolidayText(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Nager.Date currently returns HTTP 204 for TH, so this project uses
+        // randomapi.dev, a no-key public holiday API that covers Thailand.
+        async function fetchThaiPublicHolidays(year) {
+            if (thaiHolidayCache.has(year)) return thaiHolidayCache.get(year);
+            // The cached value is a promise that always resolves to an array or
+            // null. Concurrent callers for the same year therefore share one
+            // request without receiving an unhandled rejection.
+            const promise = (async () => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 8000);
+                try {
+                    const url = `${THAI_HOLIDAY_API_BASE}?country=${THAI_HOLIDAY_COUNTRY}&year=${year}&unwrap=true`;
+                    const response = await fetch(url, { signal: controller.signal });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    const list = Array.isArray(data)
+                        ? data
+                        : (data && Array.isArray(data.data) ? data.data : null);
+                    if (!list) throw new Error('Invalid holiday response');
+                    return list.filter(item => item && /^\d{4}-\d{2}-\d{2}$/.test(String(item.date || '')));
+                } catch (error) {
+                    console.warn('Holiday API unavailable:', error);
+                    return null;
+                } finally {
+                    clearTimeout(timer);
+                }
+            })();
+            thaiHolidayCache.set(year, promise);
+            const result = await promise;
+            if (result === null) thaiHolidayCache.delete(year);
+            return result;
+        }
+
+        function renderHolidayWarning(type, holidays = []) {
+            const box = document.getElementById('holiday-warning');
+            if (!box) return;
+            if (type === 'hidden') {
+                box.classList.add('hidden');
+                box.innerHTML = '';
+                return;
+            }
+            box.classList.remove('hidden');
+            if (type === 'loading') {
+                box.innerHTML = `
+                    <div class="rounded-2xl border border-[#EBD3D1] bg-[#FFF8F2] p-3.5 text-xs text-[#6F6262] flex items-center gap-2">
+                        <i class="fa-solid fa-spinner fa-spin text-[#BF4B72]"></i>
+                        <span>กำลังตรวจสอบวันหยุดนักขัตฤกษ์...</span>
+                    </div>`;
+                return;
+            }
+            if (type === 'error') {
+                box.innerHTML = `
+                    <div class="rounded-2xl border border-[#EBD3D1] bg-[#FFF5F5] p-3.5 text-xs text-[#8A5A00] flex items-start gap-2">
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                        <span>ไม่สามารถตรวจสอบวันหยุดได้ในขณะนี้ กรุณาตรวจสอบวันรับและคืนอุปกรณ์กับทางร้าน</span>
+                    </div>`;
+                return;
+            }
+            const rows = holidays.map(holiday => {
+                const primary = holiday.name || holiday.localName || 'วันหยุด';
+                const local = holiday.localName && holiday.localName !== primary
+                    ? ` <span class="text-[#8A7A55]">(${escapeHolidayText(holiday.localName)})</span>`
+                    : '';
+                return `<li>${formatThaiHolidayDate(holiday.date)} — ${escapeHolidayText(primary)}${local}</li>`;
+            }).join('');
+            box.innerHTML = `
+                <div class="rounded-2xl border border-[#E7C27A] bg-[#FFF7E6] p-4 text-[#6F6262]">
+                    <p class="text-sm font-bold text-[#8A5A00] mb-1">
+                        <i class="fa-solid fa-calendar-day mr-1"></i>วันหยุดนักขัตฤกษ์
+                    </p>
+                    <p class="text-xs mb-2">ช่วงวันที่เลือกตรงกับวันหยุดราชการ:</p>
+                    <ul class="space-y-1 text-xs list-disc list-inside">${rows}</ul>
+                    <p class="text-[11px] mt-2 text-[#7A642F]">โปรดตรวจสอบวันรับและคืนอุปกรณ์กับทางร้านล่วงหน้า</p>
+                </div>`;
+        }
+
+        async function updateHolidayWarning() {
+            const box = document.getElementById('holiday-warning');
+            if (!box) return;
+            const startDate = document.getElementById('rent-start-date')?.value || '';
+            const returnDate = document.getElementById('rent-return-date')?.value || '';
+            const seq = ++holidayWarningSeq;
+
+            const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value);
+            if (!validDate(startDate) || !validDate(returnDate) || returnDate < startDate) {
+                renderHolidayWarning('hidden');
+                return;
+            }
+
+            const startYear = Number(startDate.slice(0, 4));
+            const endYear = Number(returnDate.slice(0, 4));
+            const years = [];
+            for (let year = startYear; year <= endYear; year += 1) years.push(year);
+
+            renderHolidayWarning('loading');
+            const results = await Promise.all(years.map(year => fetchThaiPublicHolidays(year)));
+            if (seq !== holidayWarningSeq) return;
+            if (results.some(result => result === null)) {
+                renderHolidayWarning('error');
+                return;
+            }
+
+            // ISO YYYY-MM-DD strings compare correctly as dates, without UTC
+            // conversion or timezone off-by-one errors.
+            const matches = results
+                .flat()
+                .filter(holiday => holiday.date >= startDate && holiday.date <= returnDate)
+                .sort((a, b) => a.date.localeCompare(b.date));
+            const seen = new Set();
+            const unique = matches.filter(holiday => {
+                const key = `${holiday.date}|${holiday.name || holiday.localName || ''}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            if (!unique.length) {
+                renderHolidayWarning('hidden');
+                return;
+            }
+            renderHolidayWarning('found', unique);
+        }
 
         function calculateRentalDays(startStr, returnStr) {
             if (!startStr || !returnStr) return 0;
@@ -3211,12 +3585,16 @@ const $ = (s, r = document) => r.querySelector(s);
 
         // Keep the detail-page estimate in sync with dates and pickup method.
         document.addEventListener('change', e => {
-            if (e.target.matches('#rent-start-date, #rent-return-date, input[name="pickup_method"]')) {
+            if (e.target.matches('#rent-start-date, #rent-return-date')) {
+                updateRentalEstimate();
+                updateHolidayWarning();
+            } else if (e.target.matches('input[name="pickup_method"]')) {
                 updateRentalEstimate();
             }
         });
         document.addEventListener('input', e => {
             if (e.target.matches('#rent-start-date, #rent-return-date')) {
                 updateRentalEstimate();
+                updateHolidayWarning();
             }
         });

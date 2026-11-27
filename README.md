@@ -929,6 +929,15 @@ DESCRIBE EQUIPMENT;
 
 ต้องเห็นคอลัมน์ `main_image`, `detail_images` และ `stock` อยู่ในผลลัพธ์
 
+ตรวจสอบว่าตาราง `ADMIN` มีคอลัมน์ `age` และ Constraint
+
+```sql
+DESCRIBE ADMIN;
+SHOW CREATE TABLE ADMIN;
+```
+
+ต้องเห็น `age int NULL` และ `chk_admin_age` ซึ่งตรวจช่วง 18-120
+
 ตรวจสอบว่าข้อมูลถูกเก็บในฐานข้อมูลที่ถูกต้อง
 
 ```sql
@@ -1838,6 +1847,8 @@ FRONTEND_HOST
 **หน้าที่หลัก**
 
 - แสดงตารางอุปกรณ์ทั้งหมด
+- ค้นหาอุปกรณ์แบบ Server-side ด้วยชื่อสินค้า แบรนด์ ประเภท ช่วงราคาต่ำสุด-สูงสุด
+- แสดงสถานะกำลังค้นหาและข้อความเมื่อไม่พบสินค้า
 - เพิ่มอุปกรณ์ใหม่
 - แก้ไขข้อมูลอุปกรณ์
 - ลบอุปกรณ์
@@ -1847,17 +1858,20 @@ FRONTEND_HOST
 **สิ่งที่ผู้ใช้ทำได้**
 
 1. ดูรายการพร้อมรูป ขนาดราคา และสถานะ
-2. กด **Add Product**
-3. กรอกชื่อ ราคา ประเภท ยี่ห้อ Serial Number Stock สถานะ และรายละเอียด
-4. กด **เพิ่มรูปภาพ**
-5. เลือกไฟล์ JPG, PNG หรือ WEBP ขนาดไม่เกิน 5 MB
-6. กด **บันทึกรูปภาพ** เพื่ออัปโหลด
-7. กด **Save Product**
-8. กด **ดูเพิ่มเติม** เพื่อแก้ไขหรือลบ
+2. พิมพ์คำค้นหา หรือเลือกประเภท หรือกรอกช่วงราคา ระบบจะเรียก `GET /api/products?...` หลังจากหยุดพิมพ์ประมาณ 300 ms
+3. กด **ล้าง** เพื่อล้างตัวกรองและกลับมาแสดงสินค้าทั้ง 80 รายการ
+4. กด **Add Product**
+5. กรอกชื่อ ราคา ประเภท ยี่ห้อ Serial Number Stock สถานะ และรายละเอียด
+6. กด **เพิ่มรูปภาพ**
+7. เลือกไฟล์ JPG, PNG หรือ WEBP ขนาดไม่เกิน 5 MB
+8. กด **บันทึกรูปภาพ** เพื่ออัปโหลด
+9. กด **Save Product**
+10. กด **ดูเพิ่มเติม** เพื่อแก้ไขหรือลบ
 
 **ข้อมูลที่มาจาก MySQL**
 
 - ทุกคอลัมน์ของ `EQUIPMENT`
+- การค้นหาใช้ `GET /api/products?search=...&type=...&minPrice=...&maxPrice=...`
 - ประเภทอุปกรณ์จาก `GET /api/equipment-types` ซึ่งรวมค่าที่มีในฐานข้อมูลกับรายการพื้นฐาน
 - รูปภาพถูกเก็บเป็น Path ใน `EQUIPMENT.main_image` และ `EQUIPMENT.detail_images`
 - ไฟล์จริงอยู่ใน `backend/uploads/`
@@ -1868,7 +1882,8 @@ FRONTEND_HOST
 - เมื่อลบสินค้า ไฟล์รูปใน `backend/uploads/` ไม่ถูกลบตาม
 - ขนาดไฟล์สูงสุด 5 MB ต่อรูป และรับเฉพาะ JPG/PNG/WEBP
 - ยังไม่มีระบบจัดหมวดหมู่แบบกำหนดเอง นอกจากรายการ Type ที่มี
-- หน้า Admin ไม่มี Pagination หรือช่องค้นหา
+- หน้า Admin Products ยังไม่มี Pagination แต่มีช่องค้นหาแบบ Server-side แล้ว
+- ตัวกรองจะรีเซ็ตเมื่อออกจากหน้า Admin หรือ Refresh
 
 ### 8.8 หน้าจัดการผู้ใช้ (Admin Users)
 
@@ -1921,9 +1936,10 @@ ORDER BY u.account_id ASC;
 
 **หน้าที่หลัก**
 
-- แสดงรายชื่อ Admin
+- แสดงรายชื่อ Admin พร้อม Age
+- ค้นหา Admin แบบ Server-side ด้วย Username, ชื่อ, นามสกุล หรืออีเมล
 - เพิ่ม Admin ใหม่
-- แก้ไขข้อมูล Admin
+- แก้ไขข้อมูล Admin และ Age
 - เปลี่ยนรหัสผ่าน Admin
 - ลบ Admin
 
@@ -1931,7 +1947,7 @@ ORDER BY u.account_id ASC;
 
 ```sql
 SELECT a.admin_id, a.account_id, u.username, a.first_name, a.last_name,
-       a.email, a.address
+       a.age, a.email, a.address
 FROM ADMIN a
 JOIN USER_ACCOUNT u ON a.account_id = u.account_id
 WHERE u.role = 'Admin'
@@ -1940,8 +1956,10 @@ ORDER BY a.admin_id ASC;
 
 **สิ่งที่ผู้ใช้ทำได้**
 
+- พิมพ์คำค้นหาในช่องค้นหา ระบบจะเรียก `GET /api/admins?search=...` หลังจากหยุดพิมพ์ประมาณ 300 ms
+- กด **ล้าง** เพื่อกลับมาแสดง Admin ทั้งหมด
 - กด **Add Admin**
-- กรอก Username, Email, ชื่อ, นามสกุล, Password, Confirm Password, Address
+- กรอก Username, Email, ชื่อ, นามสกุล, Age (18-120 หรือเว้นว่าง), Password, Confirm Password, Address
 - กด **บันทึกข้อมูล Admin**
 - กดแก้ไขเพื่อเปลี่ยนข้อมูลหรือรหัสผ่าน
 - กดลบ
@@ -1951,6 +1969,7 @@ ORDER BY a.admin_id ASC;
 - ไม่สามารถลบ Admin คนสุดท้ายของระบบได้ (Back-End ตอบ Status 400)
 - รหัสผ่านถูกเก็บเป็นข้อความธรรมดา
 - ไม่มีการตรวจรูปแบบอีเมลใน Back-End สำหรับ Admin
+- Age ถูกตรวจว่าเป็นจำนวนเต็ม 18-120 หรือ NULL; ค่าที่ไม่ถูกต้องถูกปฏิเสธด้วย HTTP 400
 - ไม่มีการบันทึก Audit Log ว่าใครแก้ไขใคร
 - แท็บ **Profile** ใช้ดูข้อมูล Admin ปัจจุบันได้ แต่ไม่ใช่ระบบจัดการสิทธิ์แบบละเอียด
 
@@ -2199,17 +2218,19 @@ backend/uploads/tripod-catalog/      ← ภาพหลัก 9
 | 5 | `PUT` | `/api/users/:accountId` | แก้ไขลูกค้า | ✅ |
 | 6 | `DELETE` | `/api/users/:accountId` | ลบลูกค้า | ✅ |
 | 7 | `GET` | `/api/equipment-types` | ดูประเภทอุปกรณ์ | ❌ |
-| 8 | `GET` | `/api/products` | ดูอุปกรณ์ทั้งหมด | ❌ |
+| 8 | `GET` | `/api/products` | ดู/ค้นหาอุปกรณ์ (search, brand, type, minPrice, maxPrice) | ❌ |
 | 9 | `POST` | `/api/products` | เพิ่มอุปกรณ์ | ✅ |
 | 10 | `PUT` | `/api/products/:id` | แก้ไขอุปกรณ์ | ✅ |
 | 11 | `DELETE` | `/api/products/:id` | ลบอุปกรณ์ | ✅ |
 | 12 | `POST` | `/api/rentals` | ส่งคำขอเช่า | ✅ (ลดสต็อก) |
-| 13 | `GET` | `/api/admins` | ดูรายชื่อ Admin | ❌ |
+| 13 | `GET` | `/api/admins` | ดู/ค้นหา Admin (search, username, email) | ❌ |
 | 14 | `POST` | `/api/admins` | เพิ่ม Admin | ✅ |
 | 15 | `PUT` | `/api/admins/:accountId` | แก้ไข Admin | ✅ |
 | 16 | `DELETE` | `/api/admins/:accountId` | ลบ Admin | ✅ |
 
 > Endpoint ที่ไม่มีในตารางนี้ **ไม่มีอยู่ในระบบ** เช่น ไม่มี `GET /api/rentals`, ไม่มี `/api/orders`, ไม่มี `/api/payments`
+>
+> `GET /api/products` และ `GET /api/admins` รองรับ Search Query Parameters เพิ่มเติมโดยไม่เพิ่มจำนวน Endpoint ดูหัวข้อ 9.16
 
 ### 9.4 วิธีทดสอบด้วย curl
 
@@ -2717,6 +2738,7 @@ curl http://localhost:3031/api/admins
     "username": "admin_example",
     "first_name": "Example",
     "last_name": "Admin",
+    "age": 30,
     "email": "admin01@example.com",
     "address": "Bangkok"
   }
@@ -2739,6 +2761,7 @@ curl -X POST http://localhost:3031/api/admins \
     "password":"ChangeMe_1234",
     "first_name":"Example",
     "last_name":"Admin",
+    "age":30,
     "email":"admin02@example.com",
     "address":"Bangkok"
   }'
@@ -2772,6 +2795,7 @@ curl -X PUT http://localhost:3031/api/admins/1 \
     "password":"NewPassword_1234",
     "first_name":"Example",
     "last_name":"AdminUpdated",
+    "age":31,
     "email":"admin01@example.com",
     "address":"Bangkok"
   }'
@@ -2779,6 +2803,8 @@ curl -X PUT http://localhost:3031/api/admins/1 \
 
 - ถ้าไม่ส่ง `password` หรือส่งเป็นค่าว่าง ระบบจะคงรหัสผ่านเดิม
 - ถ้าส่ง `password` ใหม่ ระบบจะเปลี่ยนรหัสผ่านทันที
+- `age` ไม่บังคับ ต้องเป็นจำนวนเต็ม 18-120 หรือ `null`; ค่าที่ไม่ถูกต้องได้ HTTP 400
+- ถ้า `PUT` ไม่ส่ง `age` ระบบจะคงค่าเดิม; ถ้าส่ง `null` จะล้างค่า
 
 **Response (200)**
 
@@ -3017,6 +3043,183 @@ curl http://localhost:3031/api/equipment-types
 ```
 
 รายการนี้เกิดจาก union ระหว่างค่าที่มีจริงใน `EQUIPMENT.type` (เรียงตามตัวอักษรจาก SQL) กับรายการพื้นฐานที่กำหนดใน Back-End โดยค่าที่มีอยู่แล้วจะไม่ถูกเพิ่มซ้ำ ลำดับจึงอาจต่างกันตามข้อมูลจริงในฐานข้อมูล หมวด `Computer` และ `Speaker` ถูกนำออกแล้ว เพราะไม่มีสินค้าในแคตตาล็อก 80 รายการ
+
+### 9.16 Search API (Requirements 13 และ 15)
+
+`GET /api/products` และ `GET /api/admins` เดิมยังใช้งานได้เหมือนเดิมเมื่อไม่ส่ง Query Parameter และรองรับการค้นหาแบบ Server-side เพิ่มเติมโดยไม่เพิ่ม Route ใหม่
+
+#### Product Search
+
+| Query Parameter | ความหมาย | ตัวอย่าง |
+|---|---|---|
+| `search` | ค้นชื่อสินค้า แบรนด์ ประเภท และรายละเอียด | `?search=Sony` |
+| `brand` | กรองตามแบรนด์ | `?brand=Canon` |
+| `type` | กรองตามประเภทอุปกรณ์แบบตรงตัว | `?type=Lens` |
+| `minPrice` | ราคาเช่าต่ำสุด (ต้องไม่ติดลบ) | `?minPrice=500` |
+| `maxPrice` | ราคาเช่าสูงสุด (ต้องไม่ติดลบ) | `?maxPrice=1500` |
+
+ใช้ร่วมกันได้ เช่น
+
+```bash
+curl "http://localhost:3031/api/products?search=Sony"
+curl "http://localhost:3031/api/products?type=Lens"
+curl "http://localhost:3031/api/products?brand=Canon"
+curl "http://localhost:3031/api/products?type=Lens&brand=Canon"
+curl "http://localhost:3031/api/products?minPrice=500&maxPrice=1500"
+```
+
+**Response (200)** เป็น JSON Array เหมือน `GET /api/products` เดิม แต่มีเฉพาะรายการที่ตรงเงื่อนไข ถ้าไม่พบจะได้ `[]`
+
+```json
+[
+  {
+    "equipment_id": 15,
+    "name": "Sony FE 16-35mm f/2.8 GM II",
+    "type": "Lens",
+    "brand": "Sony",
+    "daily_rate": 1700
+  }
+]
+```
+
+- ค่าที่ส่งเข้ามาถูกผูกเป็น SQL Parameter ทุกตัว ไม่มีการต่อ String จากผู้ใช้เข้า SQL
+- `minPrice`/`maxPrice` ที่ไม่ใช่ตัวเลขหรือติดลบจะได้ HTTP 400
+- ถ้าไม่ส่ง Parameter ใดเลย จะได้สินค้าทั้ง 80 รายการตามเดิม
+
+#### Admin Search
+
+| Query Parameter | ความหมาย | ตัวอย่าง |
+|---|---|---|
+| `search` | ค้น Username, ชื่อ, นามสกุล, ชื่อเต็ม และอีเมล | `?search=Demo` |
+| `username` | กรองตาม Username | `?username=admin_demo` |
+| `email` | กรองตามอีเมล | `?email=admin@example.com` |
+
+```bash
+curl "http://localhost:3031/api/admins?search=Demo"
+curl "http://localhost:3031/api/admins?username=admin_demo"
+curl "http://localhost:3031/api/admins?email=admin@example.com"
+```
+
+Response ต้องไม่มี Password หรือ Hash และมี `age` เพิ่มขึ้น
+
+```json
+[
+  {
+    "admin_id": 1,
+    "account_id": 1,
+    "username": "admin_demo",
+    "first_name": "Demo",
+    "last_name": "Admin",
+    "age": 30,
+    "email": "admin@example.com",
+    "address": "Bangkok"
+  }
+]
+```
+
+#### Test cases ที่เพิ่มใน `backend/database.js`
+
+- **TC-017** — Product Search by Name: `GET /api/products?search=Sony`
+- **TC-018** — Filter Products by Category: `GET /api/products?type=Lens`
+- **TC-019** — Search Admin by Name: `GET /api/admins?search=Demo`
+- **TC-008B** — Product Search with Criteria: `GET /api/products?type=Lens&brand=Canon`
+- **TC-013B** — Admin Search with Criteria: `GET /api/admins?search=Demo`
+
+TC-001 ถึง TC-019 เป็นชุดทดสอบหลัก 19 กรณี ส่วน TC-008B และ TC-013B เป็นตัวอย่างเพิ่มเติมตาม Rubric ของอาจารย์ โดยไม่ซ้ำ ID เดิม
+
+### 9.17 Public Holidays API (Requirement 17)
+
+#### Provider ที่ใช้จริง
+
+Nager.Date ถูกตรวจสอบแล้วว่า **ไม่รองรับประเทศไทย** สำหรับปี 2023-2027 (`GET /api/v3/PublicHolidays/{year}/TH` ตอบ HTTP 204 และไม่มี `TH` ใน `/api/v3/AvailableCountries`) จึงไม่นำมาใช้และไม่สร้างข้อมูลวันหยุดขึ้นเอง
+
+โปรเจกต์ใช้ Public API ทางเลือกที่ไม่มีค่าใช้จ่ายและไม่ต้องใช้ API Key:
+
+```text
+https://randomapi.dev/api/holidays?country=TH&year={year}&unwrap=true
+```
+
+- ผู้ให้บริการ: **randomapi.dev — Public Holidays API**
+- ประเทศ: `TH` (Thailand)
+- CORS: เปิด (`Access-Control-Allow-Origin: *`)
+- Response: JSON Array when `unwrap=true`
+- รูปแบบข้อมูล: `date`, `name`, `localName`, `type`, `weekday`, `observed`
+- ไม่เก็บข้อมูลวันหยุดลง MySQL และไม่ Hardcode รายการวันหยุด
+
+ตัวอย่าง Response
+
+```json
+[
+  {
+    "date": "2026-01-01",
+    "name": "New Year's Day",
+    "localName": "วันขึ้นปีใหม่",
+    "type": "public",
+    "weekday": "Thursday",
+    "observed": null
+  }
+]
+```
+
+#### Frontend fetch
+
+ฟังก์ชัน `fetchThaiPublicHolidays(year)` ใน `frontend/script.js` ใช้ `fetch()` และ `async/await`
+
+```javascript
+async function fetchThaiPublicHolidays(year) {
+    const url =
+        `https://randomapi.dev/api/holidays?country=TH&year=${year}&unwrap=true`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        return Array.isArray(data) ? data : data.data;
+    } catch (error) {
+        console.error('Holiday API error:', error);
+        return null;
+    }
+}
+```
+
+โค้ดจริงมี Timeout 8 วินาที, ตรวจ Response, Cache ตามปี และป้องกัน Response เก่ามาทับผลลัพธ์ใหม่
+
+#### การแสดงผล
+
+เมื่อเลือกว่า **วันรับ** และ **วันคืน** ในหน้า Product Detail ระบบจะ
+
+1. ตรวจรูปแบบวันที่และช่วงวันที่
+2. หาปีที่ครอบคลุม (รองรับช่วงข้ามปี)
+3. เรียก API ตามปีที่ต้องใช้
+4. เปรียบเทียบ `YYYY-MM-DD` แบบ String โดยไม่แปลงเป็น UTC
+5. แสดงกล่อง **วันหยุดนักขัตฤกษ์** ใต้ช่องวันที่ เมื่อตรงกับวันหยุด
+6. ซ่อนกล่องเมื่อไม่พบวันหยุด
+7. แสดง `กำลังตรวจสอบวันหยุดนักขัตฤกษ์...` ระหว่างโหลด
+8. แสดง `ไม่สามารถตรวจสอบวันหยุดได้ในขณะนี้...` เมื่อ API ล่ม
+
+การแจ้งเตือนเป็นเพียงคำแนะนำ **ไม่บล็อกการกดเช่าเลย และไม่เปลี่ยนราคา/สต็อก**
+
+#### การสาธิตตอนอาจารย์ตรวจ
+
+1. เปิด `http://localhost:3030/?page=detail&id=1`
+2. เลือกวันรับ `2026-01-01` และวันคืน `2026-01-02`
+3. ควรมองเห็นวันขึ้นปีใหม่ในกล่องแจ้งเตือน
+4. เปลี่ยนเป็นช่วงที่ไม่มีวันหยุด เช่น `2026-01-05` ถึง `2026-01-07` กล่องจะหายไป
+5. เปิด Browser DevTools > Network แล้วดูคำขอ `randomapi.dev/api/holidays?...country=TH...`
+6. ทดสอบช่วงข้ามปี เช่น `2026-12-31` ถึง `2027-01-02` ระบบจะเรียกทั้งสองปี
+7. ตัดการเชื่อมต่ออินเทอร์เน็ตหรือ Block URL แล้วเลือกวันที่ใหม่ ฟอร์มยังกดเช่าได้และแสดงข้อความแจ้งเตือนว่าไม่สามารถตรวจสอบวันหยุดได้
+
+### 9.18 Checklist สำหรับสาธิต Requirements 6, 7, 13, 15, 16 และ 17
+
+| Requirement | สิ่งที่อาจารย์ตรวจ | วิธีสาธิต |
+|---|---|---|
+| 6 — Admin Products Search | ช่องค้นหาเหนือตาราง Products และผลลัพธ์จาก Server | Login Admin > Products > พิมพ์ `Canon` > ดู Network Request `GET /api/products?search=Canon` > เลือก Type `Lens` > กดล้าง |
+| 7 — Admin Accounts Search and Age | ช่องค้นหา Admin, คอลัมน์ Age, ฟอร์ม Add/Edit Age | Admins > พิมพ์ `Warittawat` > ดูผลลัพธ์ > Add Admin > กรอก Age 30 > บันทึก > Edit > เปลี่ยน Age > ตรวจสอบค่า |
+| 8 — CRUD + Search | CRUD เดิมยังทำงานและมี Search เพิ่มโดยไม่สร้าง Route ซ้ำ | ทดสอบ Add/Edit/Delete ใน Products และ Admins แล้วเรียก Search API ดูผลลัพธ์ |
+| 9 — Public Web Service | เรียก Public API ด้วย `fetch()` และแสดงผลในหน้าเว็บ | เปิด Product Detail > เลือกวันหยุด > ดูคำขอ `randomapi.dev` และกล่องแจ้งเตือน |
+| 13 — Search Web Services | อย่างน้อย 3 เกณฑ์และใช้ร่วมกันได้ | เรียก `?search=Sony`, `?type=Lens`, `?brand=Canon`, `?minPrice=500&maxPrice=1500`, `?type=Lens&brand=Canon` |
+| 15 — Web Service Test Comments | TC-001 ถึง TC-019 และ TC-008B/TC-013B | เปิด `backend/database.js` แล้วค้นหา `API TEST:` |
+| 16 — Frontend fetch | Admin Search ต้องเรียก API ไม่ใช่กรอง Array ใน Browser | เปิด DevTools > Network > พิมพ์ค้นหา > เห็นคำขอ `GET /api/products?...` และ `GET /api/admins?...` |
+| 17 — External Public Web Service | เรียก Public Holidays API ด้วย `fetch()` และแสดงคำเตือน | เปิด Product Detail > เลือกวันรับ/คืนที่มีวันหยุด > เห็นกล่องแจ้งเตือน > ดูคำขอ `randomapi.dev` ใน Network |
 
 ---
 
