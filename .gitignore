@@ -1,6 +1,10 @@
 node_modules/
 .env
 
+# Local rollback snapshots (old catalog images and manifests) are kept on the
+# developer machine but are not part of the submitted repository.
+backups/
+
 # Runtime uploads stay private. Only the reviewed catalog asset folders are
 # eligible to be included with the academic project.
 backend/uploads/*

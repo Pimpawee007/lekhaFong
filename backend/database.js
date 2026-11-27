@@ -633,20 +633,20 @@ app.delete('/api/users/:accountId', async (req, res) => {
 // Expected Response Structure: JSON array of type names
 // [
 //   "Camera",
+//   "Camera Filter",
 //   "Cinema Camera",
 //   "Compact Camera",
+//   "Continuous Light",
 //   "Lens",
-//   "Microphone",
-//   "Audio",
-//   "Lighting",
-//   "Computer",
-//   "Speaker",
-//   "Accessory"
+//   "Tripod",
+//   "Wireless Microphone"
 // ]
 //
 // Description:
-// Returns distinct equipment types from the database merged with the built-in
-// type list used by the Admin product form.
+// Returns distinct equipment types from the database merged with the current
+// built-in type list used by the Admin product form. The obsolete Computer and
+// Speaker options (and their older aliases) were removed because no product in
+// the 80-item catalog uses them.
 //
 
 app.get('/api/equipment-types', async (req, res) => {
@@ -657,13 +657,12 @@ app.get('/api/equipment-types', async (req, res) => {
         const baseTypes = [
             'Camera',
             'Cinema Camera',
+            'Compact Camera',
             'Lens',
-            'Microphone',
-            'Audio',
-            'Lighting',
-            'Computer',
-            'Speaker',
-            'Accessory'
+            'Continuous Light',
+            'Wireless Microphone',
+            'Camera Filter',
+            'Tripod'
         ];
         const dbTypes = rows.map(r => r.type.trim());
         const merged = Array.from(new Set([...dbTypes, ...baseTypes]));

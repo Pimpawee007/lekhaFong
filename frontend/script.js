@@ -12,8 +12,6 @@ const $ = (s, r = document) => r.querySelector(s);
             lens: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3.5"/><path d="m4.9 4.9 4.2 4.2M14.9 14.9l4.2 4.2M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/>',
             mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
             bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
-            laptop: '<path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/>',
-            speaker: '<rect width="16" height="20" x="4" y="2" rx="2"/><circle cx="12" cy="14" r="4"/><line x1="12" x2="12.01" y1="6" y2="6"/>',
             video: '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
             arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
             arrowL: '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
@@ -28,8 +26,7 @@ const $ = (s, r = document) => r.querySelector(s);
             percent: '<line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
             sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
             store: '<path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/>',
-            check: '<path d="M20 6 9 17l-5-5"/>',
-            pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'
+            check: '<path d="M20 6 9 17l-5-5"/>'
         };
         const ic = (n, c = '') => `<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
         const baht = n => '฿' + n.toLocaleString('en-US');
@@ -42,15 +39,16 @@ const $ = (s, r = document) => r.querySelector(s);
             ['เงื่อนไข', 'terms'],
             ['ทีมงาน', 'team']
         ];
+        // Active catalog categories only. The former "คอมพิวเตอร์" (Computer)
+        // and "ลำโพง" (Speaker) options were removed because neither type exists
+        // in the current 80-product catalog.
         const CATS = [
             ['กล้อง', 'camera'],
             ['เลนส์', 'lens'],
             ['ไฟสตูดิโอ', 'bulb'],
             ['ไมค์ & เสียง', 'mic'],
             ['ฟิลเตอร์', 'lens'],
-            ['ขาตั้งกล้อง', 'stand'],
-            ['คอมพิวเตอร์', 'laptop'],
-            ['ลำโพง', 'speaker']
+            ['ขาตั้งกล้อง', 'stand']
         ];
 
         // ข้อมูลสินค้าตัวอย่าง (เมื่อต่อ MySQL แล้วจะดึงจาก apiFetchProducts() มาทับตัวแปรนี้)
@@ -60,12 +58,9 @@ const $ = (s, r = document) => r.querySelector(s);
             { id: 'LNS-001', n: 'Sigma 24-70mm f/2.8', c: 'เลนส์', brand: 'Sigma', i: 'lens', p: 450, s: 'E-mount · Art series', stock: 5 },
             { id: 'MIC-001', n: 'DJI Mic 2', c: 'ไมค์ & เสียง', brand: 'DJI', i: 'mic', p: 300, b: 'New', s: 'ไร้สาย 2 ตัว · ไกล 250 ม.', stock: 6 },
             { id: 'LGT-001', n: 'Aputure 300D II', c: 'ไฟสตูดิโอ', brand: 'Aputure', i: 'bulb', p: 700, b: 'New', s: '300W Daylight · Bowens', stock: 2 },
-            { id: 'CMP-001', n: 'MacBook Pro 14"', c: 'คอมพิวเตอร์', brand: 'Apple', i: 'laptop', p: 650, s: 'M3 Pro · RAM 18GB', stock: 3 },
-            { id: 'SPK-001', n: 'JBL PartyBox 310', c: 'ลำโพง', brand: 'JBL', i: 'speaker', p: 800, s: '240W · แบต 18 ชม.', stock: 2 },
             { id: 'CAM-003', n: 'GoPro Hero 12', c: 'กล้อง', brand: 'GoPro', i: 'video', p: 350, b: '-20%', s: '5.3K · กันน้ำ 10 ม.', stock: 7 },
             { id: 'LGT-002', n: 'Godox SL60W', c: 'ไฟสตูดิโอ', brand: 'Godox', i: 'bulb', p: 350, s: '60W LED · Bowens', stock: 4 },
             { id: 'MIC-002', n: 'Rode NTG3', c: 'ไมค์ & เสียง', brand: 'Rode', i: 'mic', p: 400, s: 'Shotgun · กันความชื้น', stock: 3 },
-            { id: 'CMP-002', n: 'Dell XPS 15', c: 'คอมพิวเตอร์', brand: 'Dell', i: 'laptop', p: 500, s: 'OLED 3.5K · RTX 4060', stock: 2 },
             { id: 'CAM-004', n: 'Sony FX3', c: 'กล้อง', brand: 'Sony', i: 'video', p: 1800, b: 'Hot', s: 'Cinema Line · 4K120', stock: 2 }
         ];
 
@@ -96,8 +91,6 @@ const $ = (s, r = document) => r.querySelector(s);
             ['Sigma', 'Art', '24-70mm f/2.8 DG DN', [['ช่วงเลนส์', '24–70 mm'], ['รูรับแสง', 'f/2.8 คงที่'], ['เมาท์', 'Sony E'], ['น้ำหนัก', '830 g'], ['ฟิลเตอร์', '82 mm'], ['ในกล่อง', 'เลนส์ + ฮูด + ฝาปิด']]],
             ['DJI', 'Mic', 'Mic 2 (2 TX + 1 RX)', [['ระบบ', 'ไร้สาย 2.4 GHz'], ['ระยะรับส่ง', 'สูงสุด 250 ม.'], ['แบตเตอรี่', 'ใช้งาน 18 ชม. พร้อมเคส'], ['บันทึกในตัว', '32-bit float'], ['การเชื่อมต่อ', 'USB-C / 3.5 mm / Lightning'], ['ในกล่อง', 'ตัวส่ง 2 + ตัวรับ 1 + เคสชาร์จ']]],
             ['Aputure', 'LS', 'LS 300d II', [['กำลังไฟ', '300W Daylight 5600K'], ['CRI / TLCI', '96+ / 97+'], ['เมาท์', 'Bowens'], ['ควบคุม', 'แอป Sidus Link'], ['ไฟเลี้ยง', 'AC / V-mount'], ['ในกล่อง', 'หัวไฟ + คอนโทรลบ็อกซ์ + รีเฟล็กเตอร์']]],
-            ['Apple', 'MacBook Pro', '14" M3 Pro', [['ชิป', 'M3 Pro 11-core'], ['RAM', '18 GB'], ['SSD', '512 GB'], ['จอ', 'Liquid Retina XDR'], ['พอร์ต', '3 × Thunderbolt 4, HDMI, SD'], ['ในกล่อง', 'เครื่อง + อะแดปเตอร์ 70W']]],
-            ['JBL', 'PartyBox', '310', [['กำลังขับ', '240W RMS'], ['แบตเตอรี่', 'สูงสุด 18 ชม.'], ['ไฟ', 'LED Light Show'], ['ช่องไมค์', 'Mic / Guitar × 2'], ['กันน้ำ', 'IPX4'], ['ในกล่อง', 'ลำโพง + สายชาร์จ + ล้อลาก']]],
             ['GoPro', 'Hero', 'HERO12 Black', [['วิดีโอ', '5.3K60 / 4K120'], ['กันสั่น', 'HyperSmooth 6.0'], ['กันน้ำ', '10 ม.'], ['แบตเตอรี่', 'Enduro 1720 mAh'], ['จอ', 'หน้า + หลัง'], ['ในกล่อง', 'กล้อง + เคส + เมาท์ 3 แบบ']]],
             ['Godox', 'SL', 'SL60W', [['กำลังไฟ', '60W LED 5600K'], ['CRI', '95+'], ['เมาท์', 'Bowens'], ['ปรับแสง', '10–100%'], ['ไฟเลี้ยง', 'AC'], ['ในกล่อง', 'หัวไฟ + รีเฟล็กเตอร์ + ขาไฟ']]],
             ['Rode', 'NTG', 'NTG3', [['รูปแบบ', 'Shotgun Supercardioid'], ['ความต้านทาน', 'ทนความชื้น'], ['พลังงาน', 'Phantom 48V'], ['ย่านความถี่', '40 Hz – 20 kHz'], ['ความยาว', '25 cm'], ['ในกล่อง', 'ไมค์ + ช็อกเมาท์ + ขนกันลม']]],
@@ -120,6 +113,7 @@ const $ = (s, r = document) => r.querySelector(s);
             isAdmin: false,
             currentUser: null,
             advOpen:false,
+            catalogPage: 1,
             filters: { keyword: '', pickupDate: '', returnDate: '', maxPrice: 50000, brand: 'ทุกยี่ห้อ', category: '', onlyAvailable: false, onlyFavorites: false }
         };
 
@@ -180,6 +174,7 @@ const $ = (s, r = document) => r.querySelector(s);
 
         function clearFavoritesFilter() {
             state.filters.onlyFavorites = false;
+            state.catalogPage = 1;
             render();
         }
 
@@ -187,6 +182,7 @@ const $ = (s, r = document) => r.querySelector(s);
             state.filters.onlyFavorites = true;
             state.type = -1;
             state.filters.keyword = '';
+            state.catalogPage = 1;
             goToPage('search', { type: -1, keepFavorites: true });
         }
 
@@ -391,12 +387,6 @@ const $ = (s, r = document) => r.querySelector(s);
             } else if (typeLower.includes('light') || typeLower.includes('ไฟ')) {
                 catTh = 'ไฟสตูดิโอ';
                 icon = 'bulb';
-            } else if (typeLower.includes('comp') || typeLower.includes('laptop') || typeLower.includes('คอม')) {
-                catTh = 'คอมพิวเตอร์';
-                icon = 'laptop';
-            } else if (typeLower.includes('speak') || typeLower.includes('ลำโพง')) {
-                catTh = 'ลำโพง';
-                icon = 'speaker';
             }
 
             const stockCount = row.stock !== undefined && row.stock !== null
@@ -433,7 +423,7 @@ const $ = (s, r = document) => r.querySelector(s);
                 if (!res.ok) throw new Error('Failed to load types');
                 equipmentTypesCache = await res.json();
             } catch {
-                equipmentTypesCache = ['Camera', 'Cinema Camera', 'Lens', 'Microphone', 'Audio', 'Lighting', 'Computer', 'Speaker', 'Accessory'];
+                equipmentTypesCache = ['Camera', 'Cinema Camera', 'Compact Camera', 'Lens', 'Continuous Light', 'Wireless Microphone', 'Camera Filter', 'Tripod'];
             }
             return equipmentTypesCache;
         }
@@ -618,7 +608,7 @@ const $ = (s, r = document) => r.querySelector(s);
                             </div>
                             <button type="button" onclick="closePhotoCredits()" aria-label="Close photo credits" class="w-8 h-8 rounded-full hover:bg-[#FFF5F5] text-[#6F6262] text-xl leading-none">&times;</button>
                         </div>
-                        <p class="text-xs text-[#6F6262] mb-4 leading-relaxed">Photographs are used under the licenses below. All images are resized and converted to WebP for delivery; no other changes were made. Follow a source link to inspect the original file and its license on Wikimedia Commons.</p>
+                        <p class="text-xs text-[#6F6262] mb-4 leading-relaxed">Photographs are used under the licences below. Every image is presented on a standard 1200 × 1200 canvas, resized without stretching and exported as WebP; the product itself is not retouched. Follow a source link to inspect the original file and its licence.</p>
                         <ul class="space-y-3">${rows}</ul>
                     </div>
                 </div>
@@ -1135,13 +1125,14 @@ const $ = (s, r = document) => r.querySelector(s);
         function advPanel(open = false) {
             const f = state.filters;
             const brands = ['ทุกยี่ห้อ', ...new Set(P.map(x => x.brand).filter(Boolean))].sort();
+            const categoryCount = (name) => P.filter(p => p.c === name).length;
 
             return `
             <div class="adv-panel" ${state.advOpen ? '' : 'hidden'}>
                 <div class="adv-grid">
                     <div>
                         <span class="t">หมวดหมู่</span>
-                        <div class="chips">${CATS.map(c => `<button type="button" class="chip ${f.category === c[0] ? 'on' : ''}" onclick="setFilter('category', '${c[0]}')">${c[0]}</button>`).join('')}</div>
+                        <div class="chips">${CATS.map(c => `<button type="button" class="chip ${f.category === c[0] ? 'on' : ''}" onclick="setFilter('category', '${c[0]}')">${c[0]} (${categoryCount(c[0])})</button>`).join('')}</div>
                     </div>
                     <div>
                         <span class="t">ราคาต่อวัน</span>
@@ -1164,7 +1155,7 @@ const $ = (s, r = document) => r.querySelector(s);
                     </div>
                 </div>
                 <div class="adv-actions">
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="state.filters={...DEFAULT_FILTERS}; state.type=-1; render()">ล้างค่า</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="state.filters={...DEFAULT_FILTERS}; state.type=-1; state.catalogPage=1; render()">ล้างค่า</button>
                     <button type="button" class="btn btn-accent btn-sm" onclick="goToPage('search', {type: -1})">ใช้ตัวกรอง</button>
                 </div>
             </div>`;
@@ -1173,6 +1164,7 @@ const $ = (s, r = document) => r.querySelector(s);
         // ฟังก์ชันสลับการเลือกหมวดหมู่ (กดซ้ำเพื่อยกเลิก)
         const setFilter = (key, val) => {
             state.filters[key] = state.filters[key] === val ? '' : val;
+            state.catalogPage = 1;
             render();
         };
 
@@ -1186,6 +1178,7 @@ const $ = (s, r = document) => r.querySelector(s);
             if (pickupEl) state.filters.pickup = pickupEl.value;
             if (returnEl) state.filters.return = returnEl.value;
 
+            state.catalogPage = 1;
             goToPage('search', { type: state.type >= 0 ? state.type : -1 });
         };
 
@@ -1272,8 +1265,6 @@ const $ = (s, r = document) => r.querySelector(s);
         startBannerTimer();
 
         const BRANDS = ['Canon', 'Sony', 'Nikon', 'Fujifilm'];
-        const CAM_N = [18, 24, 12, 9], LENS_N = [21, 26, 14, 11];
-        const ACCS = [['Lighting', 'ไฟสตูดิโอ', 'bulb', 9], ['Microphone', 'ไมค์ & เสียง', 'mic', 9], ['Filter', 'ฟิลเตอร์', 'lens', 9], ['Tripod', 'ขาตั้งกล้อง', 'stand', 9]];
         const brandTile = (name, n, icon, typeIdx = 0) => `<a class="brand" href="#" data-go="search" data-type="${typeIdx}" data-brand="${name}"><div class="br-top"><span class="bi" style="width:64px; height:64px; overflow:hidden; padding:0;">${renderBrandLogo(name, icon)}</span><span class="pill">${n} รายการ</span></div><div class="br-name serif">${name}</div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
         const accTile = ([n, th, icon, c], i) => `<a class="brand acc t${i}" href="#" data-go="search" data-type="2" data-category="${th}"><div class="br-top"><span class="bi">${ic(icon)}</span><span class="pill">${c} รายการ</span></div><div><div class="br-name serif">${n}</div><small>${th}</small></div><span class="br-go">ดูอุปกรณ์${ic('arrow')}</span></a>`;
         const band = (cls, eye, title, type, inner) => {
@@ -1400,12 +1391,32 @@ const $ = (s, r = document) => r.querySelector(s);
 
         function setCatalogSort(value) {
             state.sort = SORT_OPTIONS.some(([key]) => key === value) ? value : 'default';
+            state.catalogPage = 1;
             render();
         }
 
+        // Catalog pagination is derived from the filtered result set. Nothing is
+        // hardcoded: 12 cards per page, and the pager is hidden when everything
+        // fits on a single page.
+        const CATALOG_PAGE_SIZE = 12;
+
+        function goToCatalogPage(pageNumber) {
+            const next = Number(pageNumber);
+            if (!Number.isFinite(next) || next < 1) return;
+            state.catalogPage = Math.floor(next);
+            render();
+            const grid = document.querySelector('.grid');
+            if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        window.goToCatalogPage = goToCatalogPage;
+
         function catalog() {
-            const head = pageHead('Equipment', 'Find your <em>gear</em>.', 'ค้นหาจากอุปกรณ์กว่า 500 รายการ กรองตามหมวด ราคา และวันที่ว่าง');
-            const chips = `<div class="chips filters" role="group" aria-label="หมวดหมู่">${['ทั้งหมด', ...TYPES].map((c, i) => `<button type="button" class="chip ${state.type === i - 1 ? 'on' : ''}" data-type-chip="${i - 1}" aria-pressed="${state.type === i - 1}">${c}</button>`).join('')}</div>`;
+            const typeCounts = [0, 1, 2].map(idx => P.filter(p => typeOf(p) === idx).length);
+            const head = pageHead('Equipment', 'Find your <em>gear</em>.', `ค้นหาจากอุปกรณ์ ${P.length} รายการ กรองตามหมวด ราคา และวันที่ว่าง`);
+            const chips = `<div class="chips filters" role="group" aria-label="หมวดหมู่">${['ทั้งหมด', ...TYPES].map((c, i) => {
+                const count = i === 0 ? P.length : typeCounts[i - 1];
+                return `<button type="button" class="chip ${state.type === i - 1 ? 'on' : ''}" data-type-chip="${i - 1}" aria-pressed="${state.type === i - 1}">${c} (${count})</button>`;
+            }).join('')}</div>`;
 
             // กรองสินค้าตามหมวดหมู่ คำค้นหา ราคา ยี่ห้อ และรายการโปรด
             const kw = String(state.filters.keyword || '').trim().toLowerCase();
@@ -1421,6 +1432,12 @@ const $ = (s, r = document) => r.querySelector(s);
             });
             const list = sortCatalogList(filtered);
 
+            const totalPages = Math.max(1, Math.ceil(list.length / CATALOG_PAGE_SIZE));
+            const currentPage = Math.min(Math.max(1, Number(state.catalogPage) || 1), totalPages);
+            state.catalogPage = currentPage;
+            const pageStart = (currentPage - 1) * CATALOG_PAGE_SIZE;
+            const pageItems = list.slice(pageStart, pageStart + CATALOG_PAGE_SIZE);
+
             const selectedSort = SORT_OPTIONS.some(([key]) => key === state.sort) ? state.sort : 'default';
             const bar = `<div class="res-bar"><div class="count serif">พบ ${list.length} รายการ</div><label><span class="sr-only">เรียงตาม</span><select class="field" id="catalog-sort" onchange="setCatalogSort(this.value)">${SORT_OPTIONS.map(([value, label]) => `<option value="${value}" ${selectedSort === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div>`;
             const favoriteFilter = state.filters.onlyFavorites
@@ -1429,7 +1446,13 @@ const $ = (s, r = document) => r.querySelector(s);
             const emptyMessage = state.filters.onlyFavorites
                 ? 'ยังไม่มีอุปกรณ์ในรายการโปรด กดไอคอนหัวใจที่การ์ดสินค้าเพื่อบันทึกไว้'
                 : 'ไม่พบอุปกรณ์ที่ตรงกับเงื่อนไขการค้นหา';
-            const pager = `<div class="pager"><button type="button" class="on">1</button><button type="button">2</button><button type="button">3</button><button type="button" aria-label="ถัดไป">${ic('arrow')}</button></div>`;
+
+            const pager = list.length > CATALOG_PAGE_SIZE ? `
+                <div class="pager" role="navigation" aria-label="แบ่งหน้า">
+                    <button type="button" aria-label="ก่อนหน้า" ${currentPage === 1 ? 'disabled' : ''} onclick="goToCatalogPage(${currentPage - 1})" style="transform:rotate(180deg);">${ic('arrow')}</button>
+                    ${Array.from({ length: totalPages }, (_, i) => i + 1).map(n => `<button type="button" class="${n === currentPage ? 'on' : ''}" aria-current="${n === currentPage ? 'page' : 'false'}" onclick="goToCatalogPage(${n})">${n}</button>`).join('')}
+                    <button type="button" aria-label="ถัดไป" ${currentPage === totalPages ? 'disabled' : ''} onclick="goToCatalogPage(${currentPage + 1})">${ic('arrow')}</button>
+                </div>` : '';
 
             return `
             <!-- ==================== CATALOG / SEARCH RESULTS VIEW ==================== -->
@@ -1439,7 +1462,7 @@ const $ = (s, r = document) => r.querySelector(s);
                 ${chips}
                 ${favoriteFilter}
                 ${bar}
-                <div class="grid">${list.length ? list.map((p, i) => card(p, i)).join('') : `<p class="muted">${emptyMessage}</p>`}</div>
+                <div class="grid">${pageItems.length ? pageItems.map((p, i) => card(p, pageStart + i)).join('') : `<p class="muted">${emptyMessage}</p>`}</div>
                 ${pager}
             </main>`;
         }
@@ -1616,12 +1639,11 @@ const $ = (s, r = document) => r.querySelector(s);
                             </button>
                         </div>` : ''}
 
-                        <div class="flex items-center justify-between flex-wrap gap-2 pt-1 text-xs text-[#6F6262]">
+                        <div class="flex items-center flex-wrap gap-2 pt-1 text-xs text-[#6F6262]">
                             <div class="flex gap-2 flex-wrap">
                                 <span class="px-3 py-1 rounded-full bg-[#F9E3EA] text-[#BF4B72] font-semibold">${p.c}</span>
                                 <span class="px-3 py-1 rounded-full bg-white border border-[#EBD3D1]">${p.type || p.c}</span>
                             </div>
-                            <span><i class="fa-solid fa-location-dot text-[#BF4B72] mr-1"></i> แหล่งที่มา: คลังอุปกรณ์ LekhaFong Studio</span>
                         </div>
                     </div>
 
@@ -1720,7 +1742,7 @@ const $ = (s, r = document) => r.querySelector(s);
             const me = state.userProfile || {};
             const typeOptionsHtml = (equipmentTypesCache.length
                 ? equipmentTypesCache
-                : ['Camera', 'Cinema Camera', 'Lens', 'Microphone', 'Audio', 'Lighting', 'Computer', 'Speaker', 'Accessory']
+                : ['Camera', 'Cinema Camera', 'Compact Camera', 'Lens', 'Continuous Light', 'Wireless Microphone', 'Camera Filter', 'Tripod']
             ).map(t => `<option value="${t}">${t}</option>`).join('');
 
             return `
@@ -3105,6 +3127,7 @@ const $ = (s, r = document) => r.querySelector(s);
                     : state.type;
                 state.filters.brand = (targetPage === 'search' && go.dataset.brand) ? go.dataset.brand : 'ทุกยี่ห้อ';
                 state.filters.category = (targetPage === 'search' && go.dataset.category) ? go.dataset.category : '';
+                if (targetPage === 'search') state.catalogPage = 1;
 
                 const clickedItem = go.dataset.item ?? go.dataset.id;
                 if (targetPage === 'detail' && clickedItem !== undefined) {
@@ -3120,6 +3143,7 @@ const $ = (s, r = document) => r.querySelector(s);
             if (tc) {
                 state.type = +tc.dataset.typeChip;
                 state.filters.onlyFavorites = false;
+                state.catalogPage = 1;
                 if (state.type === -1) {
                     state.filters.brand = 'ทุกยี่ห้อ';
                     state.filters.keyword = '';
